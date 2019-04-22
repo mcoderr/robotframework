@@ -13,35 +13,36 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from robot.utils import Utf8Reader
+from itertools import dropwhile
+
+from robot.output import LOGGER
+
+from .robotreader import RobotReader
 
 
-NBSP = u'\xA0'
-
-
-class TsvReader(object):
-
-    def read(self, tsvfile, populator):
-        process = False
-        for row in Utf8Reader(tsvfile).readlines():
-            row = self._process_row(row)
-            cells = [self._process_cell(cell) for cell in self.split_row(row)]
-            if cells and cells[0].strip().startswith('*') and \
-                    populator.start_table([c.replace('*', '') for c in cells]):
-                process = True
-            elif process:
-                populator.add(cells)
-        populator.eof()
-    def _process_row(self, row):
-        if NBSP in row:
-            row = row.replace(NBSP, ' ')
-        return row.rstrip()
+class TsvReader(RobotReader):
 
     @classmethod
     def split_row(cls, row):
-        return row.split('\t')
+        return [cell.strip() for cell in row.split('\t')]
 
-    def _process_cell(self, cell):
+    def _check_deprecations(self, cells, path, line_number):
+        cells = [self._deprecate_quoting(c, path, line_number) for c in cells]
+        self._deprecate_empty_data_cells(cells, path, line_number)
+        return cells
+
+    def _deprecate_quoting(self, cell, path, line_number):
         if len(cell) > 1 and cell[0] == cell[-1] == '"':
-            cell = cell[1:-1].replace('""', '"')
+            LOGGER.warn("TSV file '%s' has quotes around cells which is "
+                        "deprecated and must be fixed. Remove quotes "
+                        "from '%s' on line %d."
+                        % (path, cell, line_number))
+            return cell[1:-1].replace('""', '"').strip()
         return cell
+
+    def _deprecate_empty_data_cells(self, cells, path, line_number):
+        data_cells = dropwhile(lambda c: not c, cells)
+        if not all(data_cells):
+            LOGGER.warn("TSV file '%s' has empty data cells which is "
+                        "deprecated and must be fixed. Escape empty cells "
+                        "on line %d with '${EMPTY}'." % (path, line_number))

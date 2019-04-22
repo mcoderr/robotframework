@@ -1,5 +1,6 @@
 *** Settings ***
 Test Template      Should Be Equal
+Resource           catenate_scalars_in_variable_table.resource
 
 *** Variables ***
 ${DEFAULT SEP}     Values    catenated    with    space    by    default
@@ -17,7 +18,7 @@ ${NON STRING 2}    SEPARATOR=-    ${0}    1    ${2.0}    ${True}
 ${LIST VALUES}     @{VALUES}
 ${LIST EMPTY}      @{EMPTY}
 ${LIST EXTENDED}   @{VALUES[1:-1]}
-${LIST INTERNAL}   @{${DEFAULT SEP.split()[${0}]}[${1}:${-1}]}
+${LIST INTERNAL}   @{${DEFAULT SEP.split()[${0}]}\[${1}:${-1}]}
 ${LIST W/ SEP 1}   SEPARATOR=${EMPTY}    0    @{VALUES}    6    ${7}    8    9
 ...                ${SPACE}    ${0}    @{VALUES}    6789
 ${LIST W/ SEP 2}   SEPARATOR=@{SEPARATOR.split()}[0]    @{NON STRING 1.split()}
@@ -32,14 +33,13 @@ ${NO SEPARATOR 1}  @{NOT SEPARATOR}
 ${NO SEPARATOR 2}  @{NOT SEPARATOR}[0]    not    separator    either
 ${NO SEPARATOR 3}  ${NOT SEPARATOR[0]}    neither
 ${NO VALUES}
-# Testint that one scalar variable alone is not converted to string.
+# Testing that one scalar variable alone is not converted to string.
 ${NON STRING RESULT 1}    ${42}
 ${NON STRING RESULT 2}    ${VALUES}
 ${NON STRING RESULT 3}    @{VALUES}[2]
 ${STRING RESULT 1}        SEPARATOR=    ${42}
 ${STRING RESULT 2}        SEPARATOR=whatever    ${VALUES[2:4]}
 ${STRING RESULT 3}        ${42}    @{VALUES}[2]
-
 
 *** Test Cases ***
 Default separator is space
@@ -105,3 +105,7 @@ With separator even one scalar variable is converted to string
     ${STRING RESULT 1}        42
     ${STRING RESULT 2}        [3, 4]
     ${STRING RESULT 3}        42 3
+
+Catenated in resource 1
+    ${CATENATED IN RESOURCE 1}    aaabbbcccddd
+    ${CATENATED IN RESOURCE 2}    1sep2

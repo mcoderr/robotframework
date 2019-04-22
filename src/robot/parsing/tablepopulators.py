@@ -195,13 +195,29 @@ class _TestCaseUserKeywordPopulator(Populator):
             self._handle_data_row(dedented_row)
 
     def _handle_data_row(self, row):
+        ending_for_loop = False
         if not self._continues(row):
             self._populator.populate()
+            if row.all == ['END']:
+                ending_for_loop = self._end_for_loop()
             self._populator = self._get_populator(row)
             self._comment_cache.consume_with(self._populate_comment_row)
         else:
             self._comment_cache.consume_with(self._populator.add)
-        self._populator.add(row)
+        if not ending_for_loop:
+            self._populator.add(row)
+
+    def _end_for_loop(self):
+        if self._populating_for_loop():
+            return True
+        return self._test_or_uk.end_for_loop()
+
+    def _populating_for_loop(self):
+        return isinstance(self._populator, ForLoopPopulator)
+
+    def _continues(self, row):
+        return (row.is_continuing() and self._populator or
+                self._populating_for_loop() and row.is_indented())
 
     def _populate_comment_row(self, crow):
         populator = StepPopulator(self._test_or_uk.add_step)
@@ -223,10 +239,6 @@ class _TestCaseUserKeywordPopulator(Populator):
         if row.starts_for_loop():
             return ForLoopPopulator(self._test_or_uk.add_for_loop)
         return StepPopulator(self._test_or_uk.add_step)
-
-    def _continues(self, row):
-        return row.is_continuing() and self._populator or \
-            (isinstance(self._populator, ForLoopPopulator) and row.is_indented())
 
     def _setting_setter(self, row):
         setting_name = row.test_or_user_keyword_setting_name()
@@ -255,8 +267,19 @@ class _PropertyPopulator(Populator):
         self._comments.add(row)
 
     def _add(self, row):
+        if row.cells == ['...']:
+            self._deprecate_continuation_without_values()
         self._value.extend(row.tail if not self._data_added else row.data)
         self._data_added = True
+
+    def _deprecate_continuation_without_values(self):
+        location = self._get_deprecation_location()
+        message = ("%sIgnoring lines with only continuation marker '...' is "
+                   "deprecated." % ('In %s: ' % location if location else ''))
+        self._setter.__self__.report_invalid_syntax(message, level='WARN')
+
+    def _get_deprecation_location(self):
+        return ''
 
 
 class VariablePopulator(_PropertyPopulator):
@@ -268,11 +291,17 @@ class VariablePopulator(_PropertyPopulator):
     def populate(self):
         self._setter(self._name, self._value, self._comments.value)
 
+    def _get_deprecation_location(self):
+        return "'Variables' section"
+
 
 class SettingPopulator(_PropertyPopulator):
 
     def populate(self):
         self._setter(self._value, self._comments.value)
+
+    def _get_deprecation_location(self):
+        return "'%s' setting" % self._setter.__self__.setting_name
 
 
 class DocumentationPopulator(_PropertyPopulator):
@@ -328,6 +357,8 @@ class MetadataPopulator(DocumentationPopulator):
 class StepPopulator(_PropertyPopulator):
 
     def _add(self, row):
+        if row.cells == ['...']:
+            self._deprecate_continuation_without_values()
         self._value.extend(row.data)
 
     def populate(self):

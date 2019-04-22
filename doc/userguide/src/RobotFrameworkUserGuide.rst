@@ -44,6 +44,7 @@
 
 .. include:: CreatingTestData/TestDataSyntax.rst
 .. include:: CreatingTestData/CreatingTestCases.rst
+.. include:: CreatingTestData/CreatingTasks.rst
 .. include:: CreatingTestData/CreatingTestSuites.rst
 .. include:: CreatingTestData/UsingTestLibraries.rst
 .. include:: CreatingTestData/Variables.rst
@@ -61,6 +62,7 @@
 
 .. include:: ExecutingTestCases/BasicUsage.rst
 .. include:: ExecutingTestCases/TestExecution.rst
+.. include:: ExecutingTestCases/TaskExecution.rst
 .. include:: ExecutingTestCases/PostProcessing.rst
 .. include:: ExecutingTestCases/ConfiguringExecution.rst
 .. include:: ExecutingTestCases/OutputFiles.rst
@@ -101,7 +103,6 @@
 
 .. include:: Appendices/AvailableSettings.rst
 .. include:: Appendices/CommandLineOptions.rst
-.. include:: Appendices/Templates.rst
 .. include:: Appendices/DocumentationFormatting.rst
 .. include:: Appendices/TimeFormat.rst
 .. include:: Appendices/BooleanArguments.rst
@@ -230,10 +231,6 @@
 .. _docutils: https://pypi.python.org/pypi/docutils
 .. _Sphinx: http://sphinx-doc.org/
 .. _Pygments: http://pygments.org/
-.. _distutils: http://docs.python.org/dist/dist.html
-.. _setuptools: http://peak.telecommunity.com/DevCenter/setuptools
-.. _easy_install: http://peak.telecommunity.com/DevCenter/EasyInstall
-.. _Easy Install: easy_install_
 .. _pip: http://pip-installer.org
 .. _Read the Docs: http://readthedocs.org
 .. _AutoIT: http://www.autoitscript.com/autoit3

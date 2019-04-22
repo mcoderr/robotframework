@@ -28,6 +28,12 @@ Keep In Dictionary
 Copy Dictionary
     Check Test Case    ${TEST NAME}
 
+Shallow Copy Dictionary
+    Check Test Case    ${TEST NAME}
+
+Deep Copy Dictionary
+    Check Test Case    ${TEST NAME}
+
 Get Dictionary Keys
     Check Test Case    ${TEST NAME}
 
@@ -156,4 +162,7 @@ Pop From Dictionary Without Default
     Check Test Case    ${TEST NAME}
 
 Pop From Dictionary With Default
+    Check Test Case    ${TEST NAME}
+
+Check invalid dictionary argument errors
     Check Test Case    ${TEST NAME}

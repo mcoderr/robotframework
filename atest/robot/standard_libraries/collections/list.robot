@@ -87,6 +87,12 @@ Get Index From List With Invalid Stop Index
 Copy List
     Check Test Case    ${TEST NAME}
 
+Shallow Copy List
+    Check Test Case    ${TEST NAME}
+
+Deep Copy List
+    Check Test Case    ${TEST NAME}
+
 Reserve List
     Check Test Case    ${TEST NAME}
 
@@ -315,4 +321,7 @@ List Should Not Contain Value, Value Found and Own Error Message Regexp
     Check Test Case    ${TEST NAME}
 
 List Should Not Contain Value, Value Found and Own Error Message Glob
+    Check Test Case    ${TEST NAME}
+
+Check List Error
     Check Test Case    ${TEST NAME}
