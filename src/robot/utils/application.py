@@ -43,6 +43,9 @@ class Application(object):
         with self._logger:
             self._logger.info('%s %s' % (self._ap.name, self._ap.version))
             options, arguments = self._parse_arguments(cli_arguments)
+            print("Options",options)
+            print("Arguments",arguments)
+            print("Cli_Arguments",arguments)
             rc = self._execute(arguments, options)
         if exit:
             self._exit(rc)
@@ -78,7 +81,7 @@ class Application(object):
             self._logger.info('%s %s' % (self._ap.name, self._ap.version))
             return self._execute(list(arguments), options)
 
-    def _execute(self, arguments, options):
+    def _execute(self, arguments: object, options: object) -> object:
         try:
             rc = self.main(arguments, **options)
         except DataError as err:

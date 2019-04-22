@@ -32,7 +32,6 @@ class TsvReader(object):
             elif process:
                 populator.add(cells)
         populator.eof()
-
     def _process_row(self, row):
         if NBSP in row:
             row = row.replace(NBSP, ' ')

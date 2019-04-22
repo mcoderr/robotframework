@@ -392,6 +392,7 @@ class RobotSettings(_BaseSettings):
                        'DebugFile'          : ('debugfile', None)}
 
     def get_rebot_settings(self):
+        #LOGGER.info("RobotFramework Settings ",self)
         settings = RebotSettings()
         settings._opts.update(self._opts)
         for name in ['Variables', 'VariableFiles', 'Listeners']:

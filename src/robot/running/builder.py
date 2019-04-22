@@ -88,7 +88,10 @@ class TestSuiteBuilder(object):
             raise DataError("Parsing '%s' failed: %s" % (path, err.message))
 
     def _build_suite(self, data, parent_defaults=None):
+        print("Data _build_Suite",data)
+        print("Parent Defaults ",parent_defaults)
         defaults = TestDefaults(data.setting_table, parent_defaults)
+        print("TestDefaults",defaults)
         suite = TestSuite(name=data.name,
                           source=data.source,
                           doc=unic(data.setting_table.doc),
@@ -99,6 +102,7 @@ class TestSuiteBuilder(object):
             self._build_test(suite, test_data, defaults)
         for child in data.children:
             suite.suites.append(self._build_suite(child, defaults))
+        print("Build_Data",data)
         ResourceFileBuilder().build(data, target=suite.resource)
         return suite
 
@@ -125,6 +129,8 @@ class TestSuiteBuilder(object):
         return unic(template) if template.is_active() else None
 
     def _build_setup(self, parent, data):
+        print("Parent ",parent)
+        #print("Data",data)
         if data.is_active():
             self._build_step(parent, data, kw_type='setup')
 

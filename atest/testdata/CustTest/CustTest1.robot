@@ -6,11 +6,13 @@ ${ImagePath}      ${CURDIR}\\DownloadDir\\captcha.png
 ${CAPTCHAID}      abcd
 ${CAPTCHAPassword}    PQR
 ${pan_no}         abcd
+${name}
 
 *** Test Cases ***
 Process_Test
-    Login    12345
+    Run Keyword And Ignore Error   Login    12345
     check Pan    MukundApatel
+    Log   ${name}
 
 Process Test 2
     Log    ${ImagePath}
@@ -21,6 +23,8 @@ Login
     [Arguments]    ${pan_no}
     Run Keyword If    True    Log    Cams Login Error :Please check Username and Password
     Log    ${pan_no}
+    Log    ${OUTPUT_FILE}
+    Log    ${KEYWORD STATUS}
 
 Check PAN
     [Arguments]    ${pan_no}
