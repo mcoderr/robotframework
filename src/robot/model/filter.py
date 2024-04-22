@@ -13,90 +13,102 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from robot.utils import py2to3, setter
+from typing import Sequence, TYPE_CHECKING
+
+from robot.utils import setter
 
 from .tags import TagPatterns
-from .namepatterns import SuiteNamePatterns, TestNamePatterns
+from .namepatterns import NamePatterns
 from .visitor import SuiteVisitor
+
+if TYPE_CHECKING:
+    from .keyword import Keyword
+    from .testcase import TestCase
+    from .testsuite import TestSuite
 
 
 class EmptySuiteRemover(SuiteVisitor):
 
-    def end_suite(self, suite):
-        suite.suites = [s for s in suite.suites if s.test_count]
+    def __init__(self, preserve_direct_children: bool = False):
+        self.preserve_direct_children = preserve_direct_children
 
-    def visit_test(self, test):
+    def end_suite(self, suite: 'TestSuite'):
+        if suite.parent or not self.preserve_direct_children:
+            suite.suites = [s for s in suite.suites if s.test_count]
+
+    def visit_test(self, test: 'TestCase'):
         pass
 
-    def visit_keyword(self, kw):
+    def visit_keyword(self, keyword: 'Keyword'):
         pass
 
 
-@py2to3
 class Filter(EmptySuiteRemover):
 
-    def __init__(self, include_suites=None, include_tests=None,
-                 include_tags=None, exclude_tags=None):
+    def __init__(self,
+                 include_suites: 'NamePatterns|Sequence[str]|None' = None,
+                 include_tests: 'NamePatterns|Sequence[str]|None' = None,
+                 include_tags: 'TagPatterns|Sequence[str]|None' = None,
+                 exclude_tags: 'TagPatterns|Sequence[str]|None' = None):
+        super().__init__()
         self.include_suites = include_suites
         self.include_tests = include_tests
         self.include_tags = include_tags
         self.exclude_tags = exclude_tags
 
     @setter
-    def include_suites(self, suites):
-        return SuiteNamePatterns(suites) \
-            if not isinstance(suites, SuiteNamePatterns) else suites
+    def include_suites(self, suites) -> 'NamePatterns|None':
+        return self._patterns_or_none(suites, NamePatterns)
 
     @setter
-    def include_tests(self, tests):
-        return TestNamePatterns(tests) \
-            if not isinstance(tests, TestNamePatterns) else tests
+    def include_tests(self, tests) -> 'NamePatterns|None':
+        return self._patterns_or_none(tests, NamePatterns)
 
     @setter
-    def include_tags(self, tags):
-        return TagPatterns(tags) if not isinstance(tags, TagPatterns) else tags
+    def include_tags(self, tags) -> 'TagPatterns|None':
+        return self._patterns_or_none(tags, TagPatterns)
 
     @setter
-    def exclude_tags(self, tags):
-        return TagPatterns(tags) if not isinstance(tags, TagPatterns) else tags
+    def exclude_tags(self, tags) -> 'TagPatterns|None':
+        return self._patterns_or_none(tags, TagPatterns)
 
-    def start_suite(self, suite):
+    def _patterns_or_none(self, items, pattern_class):
+        if items is None or isinstance(items, pattern_class):
+            return items
+        return pattern_class(items)
+
+    def start_suite(self, suite: 'TestSuite'):
         if not self:
             return False
-        if hasattr(suite, 'starttime'):
-            suite.starttime = suite.endtime = None
-        if self.include_suites:
-            return self._filter_by_suite_name(suite)
-        if self.include_tests:
-            suite.tests = self._filter(suite, self._included_by_test_name)
-        if self.include_tags:
-            suite.tests = self._filter(suite, self._included_by_tags)
-        if self.exclude_tags:
-            suite.tests = self._filter(suite, self._not_excluded_by_tags)
+        if hasattr(suite, 'start_time'):
+            suite.start_time = suite.end_time = suite.elapsed_time = None
+        if self.include_suites is not None:
+            return self._filter_based_on_suite_name(suite)
+        suite.tests = [t for t in suite.tests if self._test_included(t)]
         return bool(suite.suites)
 
-    def _filter_by_suite_name(self, suite):
-        if self.include_suites.match(suite.name, suite.longname):
-            suite.visit(Filter(include_suites=[],
-                               include_tests=self.include_tests,
+    def _filter_based_on_suite_name(self, suite: 'TestSuite') -> bool:
+        if self.include_suites.match(suite.name, suite.full_name):
+            suite.visit(Filter(include_tests=self.include_tests,
                                include_tags=self.include_tags,
                                exclude_tags=self.exclude_tags))
             return False
         suite.tests = []
         return True
 
-    def _filter(self, suite, filter):
-        return [t for t in suite.tests if filter(t)]
+    def _test_included(self, test: 'TestCase') -> bool:
+        tests, include, exclude \
+                = self.include_tests, self.include_tags, self.exclude_tags
+        if exclude is not None and exclude.match(test.tags):
+            return False
+        if include is not None and include.match(test.tags):
+            return True
+        if tests is not None and tests.match(test.name, test.full_name):
+            return True
+        return include is None and tests is None
 
-    def _included_by_test_name(self, test):
-        return self.include_tests.match(test.name, test.longname)
-
-    def _included_by_tags(self, test):
-        return self.include_tags.match(test.tags)
-
-    def _not_excluded_by_tags(self, test):
-        return not self.exclude_tags.match(test.tags)
-
-    def __nonzero__(self):
-        return bool(self.include_suites or self.include_tests or
-                    self.include_tags or self.exclude_tags)
+    def __bool__(self) -> bool:
+        return bool(self.include_suites is not None or
+                    self.include_tests is not None or
+                    self.include_tags is not None or
+                    self.exclude_tags is not None)

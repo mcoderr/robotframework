@@ -11,8 +11,23 @@ Custom stdout
     ${result} =    Run Stdout Stderr Process    stdout=${STDOUT}
     Result Should Equal    ${result}    stdout    stderr    stdout_path=${STDOUT}
 
+Custom stdout as `pathlib.Path`
+    ${result} =    Run Stdout Stderr Process    stdout=${{pathlib.Path($STDOUT)}}
+    Result Should Equal    ${result}    stdout    stderr    stdout_path=${STDOUT}
+
+Redirecting stdout to DEVNULL
+    ${result} =    Run Stdout Stderr Process    stdout=DEVNULL
+    Should Not Exist      ${EXECDIR}/DEVNULL
+    Should Be Empty       ${result.stdout}
+    Should Contain Any    ${result.stdout_path}    /dev/null    nul
+    Should Be Equal       ${result.stderr}    stderr
+
 Custom stderr
     ${result} =    Run Stdout Stderr Process    stderr=${STDERR}
+    Result Should Equal    ${result}    stdout    stderr    stderr_path=${STDERR}
+
+Custom stderr as `pathlib.Path`
+    ${result} =    Run Stdout Stderr Process    stderr=${{pathlib.Path($STDERR)}}
     Result Should Equal    ${result}    stdout    stderr    stderr_path=${STDERR}
 
 Custom stdout and stderr
@@ -33,6 +48,29 @@ Redirecting stderr to custom stdout
     Result Should Match    ${result}    std???std???    std???std???
     ...    stdout_path=${STDOUT}    stderr_path=${STDOUT}
 
+Redirecting stderr to DEVNULL
+    ${result} =    Run Stdout Stderr Process    stderr=DEVNULL
+    Should Not Exist      ${EXECDIR}/DEVNULL
+    Should Be Equal       ${result.stdout}    stdout
+    Should Be Empty       ${result.stderr}
+    Should Contain Any    ${result.stderr_path}    /dev/null    nul
+
+Redirecting stdout and stderr to DEVNULL
+    ${result} =    Run Stdout Stderr Process    stdout=DEVNULL    stderr=DEVNULL
+    Should Not Exist      ${EXECDIR}/DEVNULL
+    Should Be Empty       ${result.stdout}
+    Should Contain Any    ${result.stdout_path}    /dev/null    nul
+    Should Be Empty       ${result.stderr}
+    Should Contain Any    ${result.stderr_path}    /dev/null    nul
+
+Redirecting stdout to DEVNULL and stderr to STDOUT
+    ${result} =    Run Stdout Stderr Process    stdout=DEVNULL    stderr=STDOUT
+    Should Not Exist      ${EXECDIR}/DEVNULL
+    Should Be Empty       ${result.stdout}
+    Should Contain Any    ${result.stdout_path}    /dev/null    nul
+    Should Be Empty       ${result.stderr}
+    Should Contain Any    ${result.stderr_path}    /dev/null    nul
+
 Custom streams are written under cwd when relative
     [Setup]    Create Directory    ${CWD}
     ${result} =    Run Stdout Stderr Process    cwd=${CWD}    stdout=stdout.txt    stderr=stderr.txt
@@ -48,18 +86,28 @@ Cwd does not affect absolute custom streams
 Lot of output to custom stream
     [Tags]    performance
     ${result}=    Run Process    python -c "for i in range(100000):\tprint('a'*99)"    shell=True    stdout=${STDOUT}
+    Should Be Equal    ${result.rc}    ${0}
     Length Should Be    ${result.stdout}    9999999
     File Should Not Be Empty    ${STDOUT}
 
+Lot of output to DEVNULL
+    [Tags]    performance
+    ${result}=    Run Process    python -c "for i in range(100000):\tprint('a'*99)"    shell=True    stdout=DEVNULL
+    Should Be Empty    ${result.stdout}
+    Should Be Empty    ${result.stderr}
+    Should Be Equal    ${result.rc}    ${0}
+
 Run multiple times
     [Tags]    performance
-    :FOR    ${i}    IN RANGE    500
-    \   Run And Test Once    ${i}
+    FOR    ${i}    IN RANGE    100
+       Run And Test Once    ${i}
+    END
 
 Run multiple times using custom streams
     [Tags]    performance
-    :FOR    ${i}    IN RANGE    500
-    \   Run And Test Once    ${i}    ${STDOUT}    ${STDERR}
+    FOR    ${i}    IN RANGE    100
+       Run And Test Once    ${i}    ${STDOUT}    ${STDERR}
+    END
 
 Read standard streams when they are already closed externally
     Some Process    stderr=${NONE}
@@ -83,7 +131,7 @@ Run Stdout Stderr Process
     ...    sys.stderr.write('${stderr_content}')
     ${result} =    Run Process    python    -c    ${code}
     ...    stdout=${stdout}    stderr=${stderr}    cwd=${cwd}
-    [Return]    ${result}
+    RETURN    ${result}
 
 Run And Test Once
     [Arguments]    ${content}    ${stdout}=${NONE}    ${stderr}=${NONE}

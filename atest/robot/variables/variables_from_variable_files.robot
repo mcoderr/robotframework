@@ -1,8 +1,11 @@
-*** Setting ***
-Suite Setup       Run Tests    ${EMPTY}    variables/variables_from_variable_files.robot
+*** Settings ***
+Suite Setup       Run Tests    --pythonpath ${PYTHONPATH DIR}    variables/variables_from_variable_files.robot
 Resource          atest_resource.robot
 
-*** Test Case ***
+*** Variables ***
+${PYTHONPATH DIR}    ${DATADIR}/variables/resvarfiles/pythonpath_dir
+
+*** Test Cases ***
 Scalar String
     Check Test Case    ${TEST NAME}
 
@@ -49,4 +52,13 @@ Variable Names Are Underscore Insensitive
     Check Test Case    ${TEST NAME}
 
 Variables From Variable Files Can Be Used In Local Variable Table
+    Check Test Case    ${TEST NAME}
+
+Variable file from PYTHONPATH imported by path
+    Check Test Case    ${TEST NAME}
+
+Variable file from PYTHONPATH imported as module
+    Check Test Case    ${TEST NAME}
+
+Variable file from PYTHONPATH imported as sub module
     Check Test Case    ${TEST NAME}

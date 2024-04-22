@@ -14,10 +14,6 @@ Environment Variables In Keyword Argument
     Should Be Equal  %{THIS_ENV_VAR_IS_SET}  Env var value
     Should Be Equal  %{THIS_ENV_VAR_IS_SET} can be catenated. TEMPDIR: %{TEMPDIR}  Env var value can be catenated. TEMPDIR: %{TEMPDIR}
 
-Java System Properties Can Be Used
-    Should Be Equal  %{file.separator}  ${/}
-    Should Not Be Empty  %{os.name}
-
 Non-ASCII Environment Variable
     Set Environment Variable  nön_äsĉïï   äëïöüÿ
     Should Be Equal  %{nön_äsĉïï}  äëïöüÿ
@@ -62,18 +58,18 @@ Environment Variables Are Underscore Sensitive
 
 Environment Variables In Variable Table
     Should Contain  ${SCALAR TEMPDIR}  ${/}
-    Should Contain  @{LIST TEMPDIR}[0]  ${/}
+    Should Contain  ${LIST TEMPDIR}[0]  ${/}
     Should Be Equal  ${SCALAR TEMPDIR}  %{TEMPDIR}
-    Should Be Equal  @{LIST TEMPDIR}[0]  %{TEMPDIR}
+    Should Be Equal  ${LIST TEMPDIR}[0]  %{TEMPDIR}
 
 Environment Variables In Settings Table
-    Should Contain  @{TEST_TAGS}[0]  ${/}
-    Should Be Equal  @{TEST_TAGS}[0]  %{TEMPDIR}
+    Should Contain  ${TEST_TAGS}[0]  ${/}
+    Should Be Equal  ${TEST_TAGS}[0]  %{TEMPDIR}
 
 Environment Variables In Test Metadata
     [Documentation]  %{THIS_ENV_VAR_IS_SET} in a test doc
     [Tags]  %{THIS_ENV_VAR_IS_SET}
-    Should Be Equal  @{TEST_TAGS}[0]  Env var value
+    Should Be Equal  ${TEST_TAGS}[0]  Env var value
 
 Environment Variables In User Keyword Metadata
     ${ret} =  UK With Environment Variables In Metadata
@@ -83,12 +79,25 @@ Escaping Environment Variables
     Should Be Equal  \%{THIS_IS_NOT_ENV_VAR}  %\{THIS_IS_NOT_ENV_VAR}
 
 Empty Environment Variable
-    [Documentation]    FAIL    Invalid variable name '%{}'.
+    [Documentation]    FAIL    STARTS: Environment variable '\%{}' not found.
     Log  %{}
+
+Environment Variable with Default Value
+    Should Be Equal  %{NON_EXISTING_VAR=default value}  default value
+
+Environment Variable with Variable as Default Value
+    ${default_var} =  Set variable  default value from var
+    Should Be Equal  %{NON_EXISTING_VAR=${default_var}}  default value from var
+
+Environment Variable with Empty Default Value
+    Should Be Equal  %{NON_EXISTING_VAR=}  ${EMPTY}
+
+Environment Variable with Equal Sign in Default Value
+    Should Be Equal  %{NON_EXISTING_VAR=var=value}  var=value
 
 *** Keywords ***
 UK With Environment Variables In Metadata
     [Arguments]  ${mypath}=%{TEMPDIR}
     [Documentation]  %{THIS_ENV_VAR_IS_SET} in a uk doc
     Should Contain  ${mypath}  ${/}
-    [Return]  %{THIS_ENV_VAR_IS_SET}
+    RETURN  %{THIS_ENV_VAR_IS_SET}

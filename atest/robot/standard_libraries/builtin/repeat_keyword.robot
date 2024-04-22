@@ -23,9 +23,9 @@ Times With 'x' Postfix
 
 Zero And Negative Times
     ${tc} =    Check Test Case    ${TEST NAME}
-    Check Repeated Messages    ${tc.kws[0]}    0
-    Check Repeated Messages    ${tc.kws[2]}    0
-    Check Repeated Messages    ${tc.kws[3]}    0
+    Check Repeated Messages    ${tc.kws[0]}    0    name=This is not executed
+    Check Repeated Messages    ${tc.kws[2]}    0    name=\${name}
+    Check Repeated Messages    ${tc.kws[3]}    0    name=This is not executed
 
 Invalid Times
     Check Test Case    Invalid Times 1
@@ -72,28 +72,31 @@ Repeat Keyword With Pass Execution After Continuable Failure
 
 *** Keywords ***
 Check Repeated Messages
-    [Arguments]    ${kw}    ${count}    ${msg}=${None}
-    Should Be Equal As Integers    ${kw.kw_count}    ${count}
+    [Arguments]    ${kw}    ${count}    ${msg}=    ${name}=
+    Length Should Be    ${kw.kws}    ${count}
     FOR    ${i}    IN RANGE    ${count}
         Check Log Message    ${kw.msgs[${i}]}    Repeating keyword, round ${i+1}/${count}.
         Check Log Message    ${kw.kws[${i}].msgs[0]}    ${msg}
     END
-    Run Keyword If    ${count} == 0    Check Log Message    ${kw.msgs[0]}    Keyword 'This is not executed' repeated zero times.
-    Run Keyword If    ${count} != 0    Should Be Equal As Integers    ${kw.msg_count}    ${count}
+    IF    ${count} != 0
+        Length Should Be    ${kw.msgs}    ${count}
+    ELSE
+        Check Log Message    ${kw.msgs[0]}    Keyword '${name}' repeated zero times.
+    END
 
 Check Repeated Messages With Time
     [Arguments]    ${kw}    ${msg}=${None}
-    Should Be True    ${kw.kw_count} > 0
-    FOR    ${i}    IN RANGE    ${kw.kw_count}
+    Should Not Be Empty    ${kw.kws}
+    FOR    ${i}    IN RANGE    ${{len($kw.kws)}}
         Check Log Message    ${kw.msgs[${i}]}
         ...    Repeating keyword, round ${i+1}, *remaining.    pattern=yes
         Check Log Message    ${kw.kws[${i}].msgs[0]}    ${msg}
     END
-    Should Be Equal As Integers    ${kw.msg_count}    ${kw.kw_count}
+    Should Be Equal    ${{len($kw.msgs)}}    ${{len($kw.kws)}}
 
 Check Repeated Keyword Name
     [Arguments]    ${kw}    ${count}    ${name}=${None}
-    Should Be Equal As Integers    ${kw.kw_count}    ${count}
+    Length Should Be    ${kw.kws}    ${count}
     FOR    ${i}    IN RANGE    ${count}
-        Should Be Equal    ${kw.kws[${i}].name}    ${name}
+        Should Be Equal    ${kw.kws[${i}].full_name}    ${name}
     END

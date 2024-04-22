@@ -20,9 +20,14 @@ from robot.model import SuiteVisitor
 
 class MessageFilter(SuiteVisitor):
 
-    def __init__(self, loglevel):
-        self._is_logged = IsLogged(loglevel or 'TRACE')
+    def __init__(self, log_level=None):
+        self.is_logged = IsLogged(log_level or 'TRACE')
+
+    def start_suite(self, suite):
+        if self.is_logged.level == 'TRACE':
+            return False
 
     def start_keyword(self, keyword):
-        keyword.messages = [msg for msg in keyword.messages
-                            if self._is_logged(msg.level)]
+        for item in list(keyword.body):
+            if item.type == item.MESSAGE and not self.is_logged(item.level):
+                keyword.body.remove(item)

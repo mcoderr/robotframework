@@ -1,12 +1,27 @@
-*** Settings ***
-Documentation    Initially created for testing for loops with testdoc but
-...              can be used also for other purposes and extended as needed.
+*** Variables ***
+@{ANIMALS}       cat      dog      horse
 
 *** Test Cases ***
-For Loop In Test
-    :: FOR    ${pet}    IN    cat    dog    horse
-    \    Log    ${pet}
+FOR
+    FOR    ${pet}    IN    @{ANIMALS}
+        Log    ${pet}
+    END
 
-For In Range Loop In Test
-    :: FOR    ${i}    IN RANGE    10
-    \    Log    ${i}
+FOR IN RANGE
+    FOR    ${i}    IN RANGE    10
+        Log    ${i}
+        IF    ${i} == 9    BREAK
+        CONTINUE
+        Not executed!
+    END
+
+FOR IN ENUMERATE
+    FOR    ${index}    ${element}    IN ENUMERATE    @{ANIMALS}    start=1
+        Log    ${index}: ${element}
+    END
+
+FOR IN ZIP
+    VAR    @{finnish}       kissa    koira    hevonen
+    FOR    ${en}    ${fi}    IN ZIP    ${ANIMALS}    ${finnish}    mode=LONGEST    fill=-
+        Log    ${en} is ${fi} in Finnish
+    END

@@ -9,7 +9,16 @@ Default stdout and stderr
 Custom stdout
     Check Test Case    ${TESTNAME}
 
+Custom stdout as `pathlib.Path`
+    Check Test Case    ${TESTNAME}
+
+Redirecting stdout to DEVNULL
+    Check Test Case    ${TESTNAME}
+
 Custom stderr
+    Check Test Case    ${TESTNAME}
+
+Custom stderr as `pathlib.Path`
     Check Test Case    ${TESTNAME}
 
 Custom stdout and stderr
@@ -24,6 +33,15 @@ Redirecting stderr to stdout
 Redirecting stderr to custom stdout
     Check Test Case    ${TESTNAME}
 
+Redirecting stderr to DEVNULL
+    Check Test Case    ${TESTNAME}
+
+Redirecting stdout and stderr to DEVNULL
+    Check Test Case    ${TESTNAME}
+
+Redirecting stdout to DEVNULL and stderr to STDOUT
+    Check Test Case    ${TESTNAME}
+
 Custom streams are written under cwd when relative
     Check Test Case    ${TESTNAME}
 
@@ -31,6 +49,9 @@ Cwd does not affect absolute custom streams
     Check Test Case    ${TESTNAME}
 
 Lot of output to custom stream
+    Check Test Case    ${TESTNAME}
+
+Lot of output to DEVNULL
     Check Test Case    ${TESTNAME}
 
 Run multiple times

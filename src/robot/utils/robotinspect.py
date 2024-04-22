@@ -13,24 +13,15 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from .platform import JYTHON
+import inspect
+
+from .platform import PYPY
 
 
-if JYTHON:
-
-    from org.python.core import PyReflectedFunction, PyReflectedConstructor
-
-    def is_java_init(init):
-        return isinstance(init, PyReflectedConstructor)
-
-    def is_java_method(method):
-        func = method.im_func if hasattr(method, 'im_func') else method
-        return isinstance(func, PyReflectedFunction)
-
-else:
-
-    def is_java_init(init):
+def is_init(method):
+    if not method:
         return False
-
-    def is_java_method(method):
-        return False
+    # https://foss.heptapod.net/pypy/pypy/-/issues/2462
+    if PYPY:
+        return method is not object.__init__
+    return inspect.isfunction(method)

@@ -3,45 +3,49 @@ Suite Setup     Run Tests    ${EMPTY}    parsing/table_names.robot
 Resource        atest_resource.robot
 
 *** Test Cases ***
-Setting Table
-    Should Be Equal    ${SUITE.doc}    Testing different ways to write "Setting(s)".
+Settings section
+    Should Be Equal    ${SUITE.doc}    Testing different ways to write "Settings".
     Check Test Tags    Test Case    Settings
 
-Variable Table
-    Check First Log Entry    Test Case    Variable
-    Check First Log Entry    Test Cases    Variables
+Variables section
+    Check First Log Entry    Test Case     Variables
+    Check First Log Entry    Test Cases    VARIABLES
 
-Test Case Table
+Test Cases section
     Check Test Case    Test Case
     Check Test Case    Test Cases
 
-Keyword Table
+Keywords section
     ${tc} =    Check Test Case    Test Case
     Check Log Message    ${tc.kws[1].kws[0].kws[0].msgs[0]}    "Keywords" was executed
 
-Deprecated Section Name Format
+Comments section
+    Check Test Case    Comment section exist
+    Length Should Be    ${ERRORS}    6
+
+Section names are space sensitive
     ${path} =    Normalize Path    ${DATADIR}/parsing/table_names.robot
-    ${message} =    Catenate
-    ...    Error in file '${path}':
-    ...    Section name 'K e y w o r d' is deprecated. Use 'Keyword' instead.
-    Check Log Message    ${ERRORS}[0]    ${message}    WARN
+    Invalid Section Error    0    table_names.robot    43    * * * K e y w o r d * * *
 
-Comment Table
-    Check Test Case    Comment tables exist
-    Length Should Be    ${ERRORS}    1
+Singular headers are deprecated
+    Should Be Equal    ${SUITE.metadata['Singular headers']}    Deprecated
+    Check Test Case    Singular headers are deprecated
+    Deprecated Section Warning    1    table_names.robot    47    *** Setting ***    *** Settings ***
+    Deprecated Section Warning    2    table_names.robot    49    *** variable***    *** Variables ***
+    Deprecated Section Warning    3    table_names.robot    51    ***TEST CASE***    *** Test Cases ***
+    Deprecated Section Warning    4    table_names.robot    54    *keyword           *** Keywords ***
+    Deprecated Section Warning    5    table_names.robot    57    *** Comment ***    *** Comments ***
 
-Invalid Tables
-    [Documentation]    Unrecognized tables should cause error
+Invalid sections
     [Setup]    Run Tests    ${EMPTY}    parsing/invalid_table_names.robot
     ${tc} =    Check Test Case    Test in valid table
+    ${path} =    Normalize Path    ${DATADIR}/parsing/invalid_tables_resource.robot
     Check Log Message    ${tc.kws[0].kws[0].msgs[0]}    Keyword in valid table
-    Check Log Message    ${tc.kws[1].kws[0].msgs[0]}    Keyword in valid table in resource
-    Length Should Be    ${ERRORS}    5
-    Validate Invalid Table Error    ${ERRORS[0]}    invalid_table_names.robot        Error
-    Validate Invalid Table Error    ${ERRORS[1]}    invalid_table_names.robot        ${EMPTY}
-    Validate Invalid Table Error    ${ERRORS[2]}    invalid_table_names.robot        one more table cause an error
-    Validate Invalid Table Error    ${ERRORS[3]}    invalid_tables_resource.robot    ${EMPTY}
-    Validate Invalid Table Error    ${ERRORS[4]}    invalid_tables_resource.robot    Resource Error
+    Length Should Be    ${ERRORS}    4
+    Invalid Section Error    0    invalid_table_names.robot        1     *** Error ***
+    Invalid Section Error    1    invalid_table_names.robot        8     *** ***
+    Invalid Section Error    2    invalid_table_names.robot        18    *one more table cause an error
+    Error In File    3    parsing/invalid_table_names.robot        6     Error in file '${path}' on line 1: Unrecognized section header '*** ***'. Valid sections: 'Settings', 'Variables', 'Keywords' and 'Comments'.
 
 *** Keywords ***
 Check First Log Entry
@@ -49,11 +53,15 @@ Check First Log Entry
     ${tc} =    Check Test Case    ${test case name}
     Check Log Message    ${tc.kws[0].msgs[0]}    ${expected}
 
-Validate Invalid Table Error
-    [Arguments]    ${error}    ${file}    ${header}
-    ${path} =    Normalize Path    ${DATADIR}/parsing/${file}
-    ${message} =    Catenate
-    ...    Error in file '${path}': Unrecognized table header '${header}'.
-    ...    Available headers for data: 'Setting(s)', 'Variable(s)', 'Test Case(s)',
-    ...    'Task(s)' and 'Keyword(s)'. Use 'Comment(s)' to embedded additional data.
-    Check Log Message    ${error}    ${message}    ERROR
+Invalid Section Error
+    [Arguments]    ${index}    ${file}    ${lineno}    ${header}    ${test and task}=, 'Test Cases', 'Tasks'
+    Error In File    ${index}    parsing/${file}    ${lineno}
+    ...    Unrecognized section header '${header}'.
+    ...    Valid sections: 'Settings', 'Variables'${test and task},
+    ...    'Keywords' and 'Comments'.
+
+Deprecated Section Warning
+    [Arguments]    ${index}    ${file}    ${lineno}    ${used}    ${expected}
+    Error In File    ${index}    parsing/${file}    ${lineno}
+    ...    Singular section headers like '${used}' are deprecated. Use plural format like '${expected}' instead.
+    ...    level=WARN

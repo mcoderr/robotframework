@@ -14,21 +14,20 @@
 #  limitations under the License.
 
 import copy
+from ast import literal_eval
+from itertools import chain
 
 from robot.api import logger
-from robot.utils import (is_dict_like, is_list_like, is_number, is_string, is_truthy, plural_or_not,
-                         seq2str, seq2str2, type_name, unic, Matcher)
+from robot.utils import (is_dict_like, is_list_like, Matcher, NotSet,
+                         plural_or_not as s, seq2str, seq2str2, type_name)
 from robot.utils.asserts import assert_equal
 from robot.version import get_version
 
 
-class NotSet(object):
-    def __repr__(self):
-        return ""
 NOT_SET = NotSet()
 
 
-class _List(object):
+class _List:
 
     def convert_to_list(self, item):
         """Converts the given ``item`` to a Python ``list`` type.
@@ -82,18 +81,15 @@ class _List(object):
         The given lists are not altered by this keyword.
 
         Example:
-        | ${x} = | Combine List | ${L1} | ${L2} |       |
-        | ${y} = | Combine List | ${L1} | ${L2} | ${L1} |
+        | ${x} = | Combine Lists | ${L1} | ${L2} |       |
+        | ${y} = | Combine Lists | ${L1} | ${L2} | ${L1} |
         =>
         | ${x} = ['a', 'a', 'b']
         | ${y} = ['a', 'a', 'b', 'a']
         | ${L1} and ${L2} are not changed.
         """
         self._validate_lists(*lists)
-        ret = []
-        for item in lists:
-            ret.extend(item)
-        return ret
+        return list(chain.from_iterable(lists))
 
     def set_list_value(self, list_, index, value):
         """Sets the value of ``list`` specified by ``index`` to the given ``value``.
@@ -109,6 +105,11 @@ class _List(object):
         | Set List Value | ${L3} | -1 | yyy |
         =>
         | ${L3} = ['a', 'xxx', 'yyy']
+
+        Starting from Robot Framework 6.1, it is also possible to use the native
+        item assignment syntax. This is equivalent to the above:
+        | ${L3}[1] =  | Set Variable | xxx |
+        | ${L3}[-1] = | Set Variable | yyy |
         """
         self._validate_list(list_)
         try:
@@ -166,7 +167,7 @@ class _List(object):
             if item not in ret:
                 ret.append(item)
         removed = len(list_) - len(ret)
-        logger.info('%d duplicate%s removed.' % (removed, plural_or_not(removed)))
+        logger.info(f'{removed} duplicate{s(removed)} removed.')
         return ret
 
     def get_from_list(self, list_, index):
@@ -209,9 +210,9 @@ class _List(object):
         the largest (or smallest) available index.
 
         Examples (incl. Python equivalents in comments):
-        | ${x} = | Get Slice From List | ${L5} | 2 | 4  | # L5[2:4]    |
-        | ${y} = | Get Slice From List | ${L5} | 1 |    | # L5[1:None] |
-        | ${z} = | Get Slice From List | ${L5} |   | -2 | # L5[0:-2]   |
+        | ${x} = | Get Slice From List | ${L5} | 2      | 4 | # L5[2:4]    |
+        | ${y} = | Get Slice From List | ${L5} | 1      |   | # L5[1:None] |
+        | ${z} = | Get Slice From List | ${L5} | end=-2 |   | # L5[0:-2]   |
         =>
         | ${x} = ['c', 'd']
         | ${y} = ['b', 'c', 'd', 'e']
@@ -255,19 +256,19 @@ class _List(object):
         | ${L5} is not changed
         """
         self._validate_list(list_)
-        if start == '':
-            start = 0
+        start = self._index_to_int(start, empty_to_zero=True)
         list_ = self.get_slice_from_list(list_, start, end)
         try:
-            return int(start) + list_.index(value)
+            return start + list_.index(value)
         except ValueError:
             return -1
 
     def copy_list(self, list_, deepcopy=False):
         """Returns a copy of the given list.
 
-        If the optional ``deepcopy`` is given a true value, the returned
-        list is a deep copy. New option in Robot Framework 3.1.2.
+        By default, returns a new list with same items as in the original.
+        Set the ``deepcopy`` argument to a true value if also items should
+        be copied.
 
         The given list is never altered by this keyword.
         """
@@ -292,40 +293,45 @@ class _List(object):
     def sort_list(self, list_):
         """Sorts the given list in place.
 
-        The strings are sorted alphabetically and the numbers numerically.
+        Sorting fails if items in the list are not comparable with each others.
+        For example, sorting a list containing strings and numbers is not possible.
 
         Note that the given list is changed and nothing is returned. Use
-        `Copy List` first, if you need to keep also the original order.
-
-        ${L} = [2,1,'a','c','b']
-        | Sort List | ${L} |
-        =>
-        | ${L} = [1, 2, 'a', 'b', 'c']
+        `Copy List` first, if you need to preserve the list also in the original
+        order.
         """
         self._validate_list(list_)
         list_.sort()
 
-    def list_should_contain_value(self, list_, value, msg=None):
+    def list_should_contain_value(self, list_, value, msg=None, ignore_case=False):
         """Fails if the ``value`` is not found from ``list``.
 
-        If the keyword fails, the default error messages is ``<list> does
-        not contain value '<value>'``. A custom message can be given using
-        the ``msg`` argument.
+        Use the ``msg`` argument to override the default error message.
+
+        The ``ignore_case`` argument can be used to make comparison case-insensitive.
+        See the `Ignore case` section for more details. This option is new in
+        Robot Framework 7.0.
         """
         self._validate_list(list_)
-        default = "%s does not contain value '%s'." % (seq2str2(list_), value)
-        _verify_condition(value in list_, default, msg)
+        normalize = Normalizer(ignore_case).normalize
+        _verify_condition(normalize(value) in normalize(list_),
+                          f"{seq2str2(list_)} does not contain value '{value}'.", msg)
 
-    def list_should_not_contain_value(self, list_, value, msg=None):
+    def list_should_not_contain_value(self, list_, value, msg=None, ignore_case=False):
         """Fails if the ``value`` is found from ``list``.
 
-        See `List Should Contain Value` for an explanation of ``msg``.
+        Use the ``msg`` argument to override the default error message.
+
+        The ``ignore_case`` argument can be used to make comparison case-insensitive.
+        See the `Ignore case` section for more details. This option is new in
+        Robot Framework 7.0.
         """
         self._validate_list(list_)
-        default = "%s contains value '%s'." % (seq2str2(list_), value)
-        _verify_condition(value not in list_, default, msg)
+        normalize = Normalizer(ignore_case).normalize
+        _verify_condition(normalize(value) not in normalize(list_),
+                          f"{seq2str2(list_)} contains value '{value}'.", msg)
 
-    def list_should_not_contain_duplicates(self, list_, msg=None):
+    def list_should_not_contain_duplicates(self, list_, msg=None, ignore_case=False):
         """Fails if any element in the ``list`` is found from it more than once.
 
         The default error message lists all the elements that were found
@@ -335,23 +341,25 @@ class _List(object):
 
         This keyword works with all iterables that can be converted to a list.
         The original iterable is never altered.
+
+        The ``ignore_case`` argument can be used to make comparison case-insensitive.
+        See the `Ignore case` section for more details. This option is new in
+        Robot Framework 7.0.
         """
         self._validate_list(list_)
-        if not isinstance(list_, list):
-            list_ = list(list_)
         dupes = []
+        list_ = Normalizer(ignore_case).normalize(list_)
         for item in list_:
             if item not in dupes:
                 count = list_.count(item)
                 if count > 1:
-                    logger.info("'%s' found %d times." % (item, count))
+                    logger.info(f"'{item}' found {count} times.")
                     dupes.append(item)
         if dupes:
-            raise AssertionError(msg or
-                                 '%s found multiple times.' % seq2str(dupes))
+            raise AssertionError(msg or f'{seq2str(dupes)} found multiple times.')
 
     def lists_should_be_equal(self, list1, list2, msg=None, values=True,
-                              names=None):
+                              names=None, ignore_order=False, ignore_case=False):
         """Fails if given lists are unequal.
 
         The keyword first verifies that the lists have equal lengths, and then
@@ -359,7 +367,6 @@ class _List(object):
         values are listed in the default error message like ``Index 4: ABC !=
         Abc``. The types of the lists do not need to be the same. For example,
         Python tuple and list with same content are considered equal.
-
 
         The error message can be configured using ``msg`` and ``values``
         arguments:
@@ -370,12 +377,12 @@ class _List(object):
         - If ``msg`` is given and ``values``  is not given a true value,
           the error message is just the given ``msg``.
 
-        Optional ``names`` argument can be used for naming the indices shown in
-        the default error message. It can either be a list of names matching
-        the indices in the lists or a dictionary where keys are indices that
-        need to be named. It is not necessary to name all of the indices.  When
-        using a dictionary, keys can be either integers or strings that can be
-        converted to integers.
+        The optional ``names`` argument can be used for naming the indices
+        shown in the default error message. It can either be a list of names
+        matching the indices in the lists or a dictionary where keys are
+        indices that need to be named. It is not necessary to name all indices.
+        When using a dictionary, keys can be either integers
+        or strings that can be converted to integers.
 
         Examples:
         | ${names} = | Create List | First Name | Family Name | Email |
@@ -386,45 +393,72 @@ class _List(object):
         If the items in index 2 would differ in the above examples, the error
         message would contain a row like ``Index 2 (email): name@foo.com !=
         name@bar.com``.
+
+        The optional ``ignore_order`` argument can be used to ignore the order
+        of the elements in the lists. Using it requires items to be sortable.
+        This option works recursively with nested lists starting from Robot
+        Framework 7.0.
+
+        Example:
+        | ${list1} = | Create List | apple | cherry | banana |
+        | ${list2} = | Create List | cherry | banana | apple |
+        | Lists Should Be Equal | ${list1} | ${list2} | ignore_order=True |
+
+        The ``ignore_case`` argument can be used to make comparison case-insensitive.
+        See the `Ignore case` section for more details. This option is new in
+        Robot Framework 7.0.
         """
         self._validate_lists(list1, list2)
         len1 = len(list1)
         len2 = len(list2)
-        default = 'Lengths are different: %d != %d' % (len1, len2)
-        _verify_condition(len1 == len2, default, msg, values)
+        _verify_condition(len1 == len2,
+                          f'Lengths are different: {len1} != {len2}',
+                          msg, values)
         names = self._get_list_index_name_mapping(names, len1)
-        diffs = list(self._yield_list_diffs(list1, list2, names))
-        default = 'Lists are different:\n' + '\n'.join(diffs)
-        _verify_condition(diffs == [], default, msg, values)
+        normalize = Normalizer(ignore_case, ignore_order).normalize
+        diffs = '\n'.join(self._yield_list_diffs(normalize(list1), normalize(list2),
+                                                 names))
+        _verify_condition(not diffs,
+                          f'Lists are different:\n{diffs}',
+                          msg, values)
 
     def _get_list_index_name_mapping(self, names, list_length):
         if not names:
             return {}
         if is_dict_like(names):
-            return dict((int(index), names[index]) for index in names)
+            return {int(index): names[index] for index in names}
         return dict(zip(range(list_length), names))
 
     def _yield_list_diffs(self, list1, list2, names):
         for index, (item1, item2) in enumerate(zip(list1, list2)):
-            name = ' (%s)' % names[index] if index in names else ''
+            name = f' ({names[index]})' if index in names else ''
             try:
-                assert_equal(item1, item2, msg='Index %d%s' % (index, name))
+                assert_equal(item1, item2, msg=f'Index {index}{name}')
             except AssertionError as err:
-                yield unic(err)
+                yield str(err)
 
-    def list_should_contain_sub_list(self, list1, list2, msg=None, values=True):
-        """Fails if not all of the elements in ``list2`` are found in ``list1``.
+    def list_should_contain_sub_list(self, list1, list2, msg=None, values=True,
+                                     ignore_case=False):
+        """Fails if not all elements in ``list2`` are found in ``list1``.
 
         The order of values and the number of values are not taken into
         account.
 
         See `Lists Should Be Equal` for more information about configuring
         the error message with ``msg`` and ``values`` arguments.
+
+        The ``ignore_case`` argument can be used to make comparison case-insensitive.
+        See the `Ignore case` section for more details. This option is new in
+        Robot Framework 7.0.
         """
         self._validate_lists(list1, list2)
-        diffs = ', '.join(unic(item) for item in list2 if item not in list1)
-        default = 'Following values were not found from first list: ' + diffs
-        _verify_condition(not diffs, default, msg, values)
+        normalize = Normalizer(ignore_case).normalize
+        list1 = normalize(list1)
+        list2 = normalize(list2)
+        diffs = ', '.join(str(item) for item in list2 if item not in list1)
+        _verify_condition(not diffs,
+                          f'Following values were not found from first list: {diffs}',
+                          msg, values)
 
     def log_list(self, list_, level='INFO'):
         """Logs the length and contents of the ``list`` using given ``level``.
@@ -441,11 +475,11 @@ class _List(object):
         if not list_:
             yield 'List is empty.'
         elif len(list_) == 1:
-            yield 'List has one item:\n%s' % list_[0]
+            yield f'List has one item:\n{list_[0]}'
         else:
-            yield 'List length is %d and it contains following items:' % len(list_)
+            yield f'List length is {len(list_)} and it contains following items:'
             for index, item in enumerate(list_):
-                yield '%s: %s' % (index, item)
+                yield f'{index}: {item}'
 
     def _index_to_int(self, index, empty_to_zero=False):
         if empty_to_zero and not index:
@@ -453,51 +487,55 @@ class _List(object):
         try:
             return int(index)
         except ValueError:
-            raise ValueError("Cannot convert index '%s' to an integer." % index)
+            raise ValueError(f"Cannot convert index '{index}' to an integer.")
 
     def _index_error(self, list_, index):
-        raise IndexError('Given index %s is out of the range 0-%d.'
-                         % (index, len(list_)-1))
+        raise IndexError(f'Given index {index} is out of the range 0-{len(list_)-1}.')
 
     def _validate_list(self, list_, position=1):
         if not is_list_like(list_):
-            raise TypeError("Expected argument %d to be a list or list-like, "
-                            "got %s instead." % (position, type_name(list_)))
+            raise TypeError(f"Expected argument {position} to be a list or list-like, "
+                            f"got {type_name(list_)} instead.")
 
     def _validate_lists(self, *lists):
         for index, item in enumerate(lists, start=1):
             self._validate_list(item, index)
 
 
-class _Dictionary(object):
+class _Dictionary:
 
     def convert_to_dictionary(self, item):
         """Converts the given ``item`` to a Python ``dict`` type.
 
-        Mainly useful for converting other mappings to dictionaries. Use
-        `Create Dictionary` from the BuiltIn library for constructing new
-        dictionaries.
+        Mainly useful for converting other mappings to normal dictionaries.
+        This includes converting Robot Framework's own ``DotDict`` instances
+        that it uses if variables are created using the ``&{var}`` syntax.
 
-        New in Robot Framework 2.9.
+        Use `Create Dictionary` from the BuiltIn library for constructing new
+        dictionaries.
         """
         return dict(item)
 
     def set_to_dictionary(self, dictionary, *key_value_pairs, **items):
-        """Adds the given ``key_value_pairs`` and ``items`` to the ``dictionary``.
+        """Adds the given ``key_value_pairs`` and/or ``items`` to the ``dictionary``.
 
-        Giving items as ``key_value_pairs`` means giving keys and values
-        as separate arguments:
+        If given items already exist in the dictionary, their values are updated.
 
-        | Set To Dictionary | ${D1} | key | value | second | ${2} |
+        It is easiest to specify items using the ``name=value`` syntax:
+        | Set To Dictionary | ${D1} | key=value | second=${2} |
         =>
         | ${D1} = {'a': 1, 'key': 'value', 'second': 2}
 
-        | Set To Dictionary | ${D1} | key=value | second=${2} |
+        A limitation of the above syntax is that keys must be strings.
+        That can be avoided by passing keys and values as separate arguments:
+        | Set To Dictionary | ${D1} | key | value | ${2} | value 2 |
+        =>
+        | ${D1} = {'a': 1, 'key': 'value', 2: 'value 2'}
 
-        The latter syntax is typically more convenient to use, but it has
-        a limitation that keys must be strings.
-
-        If given keys already exist in the dictionary, their values are updated.
+        Starting from Robot Framework 6.1, it is also possible to use the native
+        item assignment syntax. This is equivalent to the above:
+        | ${D1}[key] =  | Set Variable | value |
+        | ${D1}[${2}] = | Set Variable | value 2 |
         """
         self._validate_dictionary(dictionary)
         if len(key_value_pairs) % 2 != 0:
@@ -523,9 +561,9 @@ class _Dictionary(object):
         for key in keys:
             if key in dictionary:
                 value = dictionary.pop(key)
-                logger.info("Removed item with key '%s' and value '%s'." % (key, value))
+                logger.info(f"Removed item with key '{key}' and value '{value}'.")
             else:
-                logger.info("Key '%s' not found." % key)
+                logger.info(f"Key '{key}' not found.")
 
     def pop_from_dictionary(self, dictionary, key, default=NOT_SET):
         """Pops the given ``key`` from the ``dictionary`` and returns its value.
@@ -539,8 +577,6 @@ class _Dictionary(object):
         =>
         | ${val} = 2
         | ${D3} = {'a': 1, 'c': 3}
-
-        New in Robot Framework 2.9.2.
         """
         self._validate_dictionary(dictionary)
         if default is NOT_SET:
@@ -566,8 +602,9 @@ class _Dictionary(object):
     def copy_dictionary(self, dictionary, deepcopy=False):
         """Returns a copy of the given dictionary.
 
-        If the optional ``deepcopy`` is given a true value, the returned
-        dictionary is a deep copy. New option in Robot Framework 3.1.2.
+        By default, returns a new dictionary with same items as in the original.
+        Set the ``deepcopy`` argument to a true value if also items should
+        be copied.
 
         The given dictionary is never altered by this keyword.
         """
@@ -576,61 +613,71 @@ class _Dictionary(object):
             return copy.deepcopy(dictionary)
         return dictionary.copy()
 
-    def get_dictionary_keys(self, dictionary):
-        """Returns keys of the given ``dictionary``.
+    def get_dictionary_keys(self, dictionary, sort_keys=True):
+        """Returns keys of the given ``dictionary`` as a list.
 
-        If keys are sortable, they are returned in sorted order. The given
-        ``dictionary`` is never altered by this keyword.
+        By default, keys are returned in sorted order (assuming they are
+        sortable), but they can be returned in the original order by giving
+        ``sort_keys`` a false value.
 
-        Example:
-        | ${keys} = | Get Dictionary Keys | ${D3} |
-        =>
-        | ${keys} = ['a', 'b', 'c']
-        """
-        self._validate_dictionary(dictionary)
-        # TODO: Possibility to disable sorting. Can be handy with OrderedDicts.
-        keys = dictionary.keys()
-        try:
-            return sorted(keys)
-        except TypeError:
-            return list(keys)
-
-    def get_dictionary_values(self, dictionary):
-        """Returns values of the given dictionary.
-
-        Values are returned sorted according to keys. The given dictionary is
-        never altered by this keyword.
+        The given ``dictionary`` is never altered by this keyword.
 
         Example:
-        | ${values} = | Get Dictionary Values | ${D3} |
-        =>
-        | ${values} = [1, 2, 3]
+        | ${sorted} =   | Get Dictionary Keys | ${D3} |
+        | ${unsorted} = | Get Dictionary Keys | ${D3} | sort_keys=False |
         """
         self._validate_dictionary(dictionary)
-        return [dictionary[k] for k in self.get_dictionary_keys(dictionary)]
+        if sort_keys:
+            try:
+                return sorted(dictionary)
+            except TypeError:
+                pass
+        return list(dictionary)
 
-    def get_dictionary_items(self, dictionary):
-        """Returns items of the given ``dictionary``.
+    def get_dictionary_values(self, dictionary, sort_keys=True):
+        """Returns values of the given ``dictionary`` as a list.
 
-        Items are returned sorted by keys. The given ``dictionary`` is not
-        altered by this keyword.
+        Uses `Get Dictionary Keys` to get keys and then returns corresponding
+        values. By default, keys are sorted and values returned in that order,
+        but this can be changed by giving ``sort_keys`` a false value.
+
+        The given ``dictionary`` is never altered by this keyword.
 
         Example:
-        | ${items} = | Get Dictionary Items | ${D3} |
-        =>
-        | ${items} = ['a', 1, 'b', 2, 'c', 3]
+        | ${sorted} =   | Get Dictionary Values | ${D3} |
+        | ${unsorted} = | Get Dictionary Values | ${D3} | sort_keys=False |
         """
         self._validate_dictionary(dictionary)
-        ret = []
-        for key in self.get_dictionary_keys(dictionary):
-            ret.extend((key, dictionary[key]))
-        return ret
+        keys = self.get_dictionary_keys(dictionary, sort_keys=sort_keys)
+        return [dictionary[k] for k in keys]
 
-    def get_from_dictionary(self, dictionary, key):
+    def get_dictionary_items(self, dictionary, sort_keys=True):
+        """Returns items of the given ``dictionary`` as a list.
+
+        Uses `Get Dictionary Keys` to get keys and then returns corresponding
+        items. By default, keys are sorted and items returned in that order,
+        but this can be changed by giving ``sort_keys`` a false value.
+
+        Items are returned as a flat list so that first item is a key,
+        second item is a corresponding value, third item is the second key,
+        and so on.
+
+        The given ``dictionary`` is never altered by this keyword.
+
+        Example:
+        | ${sorted} =   | Get Dictionary Items | ${D3} |
+        | ${unsorted} = | Get Dictionary Items | ${D3} | sort_keys=False |
+        """
+        self._validate_dictionary(dictionary)
+        keys = self.get_dictionary_keys(dictionary, sort_keys=sort_keys)
+        return [i for key in keys for i in (key, dictionary[key])]
+
+    def get_from_dictionary(self, dictionary, key, default=NOT_SET):
         """Returns a value from the given ``dictionary`` based on the given ``key``.
 
         If the given ``key`` cannot be found from the ``dictionary``, this
-        keyword fails.
+        keyword fails. If optional ``default`` value is given, it will be
+        returned instead of failing.
 
         The given dictionary is never altered by this keyword.
 
@@ -638,72 +685,106 @@ class _Dictionary(object):
         | ${value} = | Get From Dictionary | ${D3} | b |
         =>
         | ${value} = 2
+
+        Support for ``default`` is new in Robot Framework 6.0.
         """
         self._validate_dictionary(dictionary)
         try:
             return dictionary[key]
         except KeyError:
-            raise RuntimeError("Dictionary does not contain key '%s'." % key)
+            if default is not NOT_SET:
+                return default
+            raise RuntimeError(f"Dictionary does not contain key '{key}'.")
 
-    def dictionary_should_contain_key(self, dictionary, key, msg=None):
+    def dictionary_should_contain_key(self, dictionary, key, msg=None,
+                                      ignore_case=False):
         """Fails if ``key`` is not found from ``dictionary``.
 
-        See `List Should Contain Value` for an explanation of ``msg``.
+        Use the ``msg`` argument to override the default error message.
 
-        The given dictionary is never altered by this keyword.
+        The ``ignore_case`` argument can be used to make comparison case-insensitive.
+        See the `Ignore case` section for more details. This option is new in
+        Robot Framework 7.0.
         """
         self._validate_dictionary(dictionary)
-        default = "Dictionary does not contain key '%s'." % key
-        _verify_condition(key in dictionary, default, msg)
+        norm = Normalizer(ignore_case)
+        _verify_condition(
+            norm.normalize_key(key) in norm.normalize(dictionary),
+            f"Dictionary does not contain key '{key}'.", msg
+        )
 
-    def dictionary_should_not_contain_key(self, dictionary, key, msg=None):
+    def dictionary_should_not_contain_key(self, dictionary, key, msg=None,
+                                          ignore_case=False):
         """Fails if ``key`` is found from ``dictionary``.
 
-        See `List Should Contain Value` for an explanation of ``msg``.
+        Use the ``msg`` argument to override the default error message.
 
-        The given dictionary is never altered by this keyword.
+        The ``ignore_case`` argument can be used to make comparison case-insensitive.
+        See the `Ignore case` section for more details. This option is new in
+        Robot Framework 7.0.
         """
         self._validate_dictionary(dictionary)
-        default = "Dictionary contains key '%s'." % key
-        _verify_condition(key not in dictionary, default, msg)
+        norm = Normalizer(ignore_case)
+        _verify_condition(
+            norm.normalize_key(key) not in norm.normalize(dictionary),
+            f"Dictionary contains key '{key}'.", msg
+        )
 
-    def dictionary_should_contain_item(self, dictionary, key, value, msg=None):
+    def dictionary_should_contain_item(self, dictionary, key, value, msg=None,
+                                       ignore_case=False):
         """An item of ``key`` / ``value`` must be found in a ``dictionary``.
 
-        Value is converted to unicode for comparison.
+        Use the ``msg`` argument to override the default error message.
 
-        See `Lists Should Be Equal` for an explanation of ``msg``.
-        The given dictionary is never altered by this keyword.
+        The ``ignore_case`` argument can be used to make comparison case-insensitive.
+        See the `Ignore case` section for more details. This option is new in
+        Robot Framework 7.0.
         """
         self._validate_dictionary(dictionary)
-        self.dictionary_should_contain_key(dictionary, key, msg)
-        actual, expected = unic(dictionary[key]), unic(value)
-        default = "Value of dictionary key '%s' does not match: %s != %s" % (key, actual, expected)
-        _verify_condition(actual == expected, default, msg)
+        self.dictionary_should_contain_key(dictionary, key, msg, ignore_case)
+        norm = Normalizer(ignore_case)
+        assert_equal(
+            norm.normalize(dictionary)[norm.normalize_key(key)],
+            norm.normalize_value(value),
+            msg or f"Value of dictionary key '{key}' does not match", values=not msg
+        )
 
-    def dictionary_should_contain_value(self, dictionary, value, msg=None):
+    def dictionary_should_contain_value(self, dictionary, value, msg=None,
+                                        ignore_case=False):
         """Fails if ``value`` is not found from ``dictionary``.
 
-        See `List Should Contain Value` for an explanation of ``msg``.
+        Use the ``msg`` argument to override the default error message.
 
-        The given dictionary is never altered by this keyword.
+        The ``ignore_case`` argument can be used to make comparison case-insensitive.
+        See the `Ignore case` section for more details. This option is new in
+        Robot Framework 7.0.
         """
         self._validate_dictionary(dictionary)
-        default = "Dictionary does not contain value '%s'." % value
-        _verify_condition(value in dictionary.values(), default, msg)
+        norm = Normalizer(ignore_case)
+        _verify_condition(
+            norm.normalize_value(value) in norm.normalize(dictionary).values(),
+            f"Dictionary does not contain value '{value}'.", msg
+        )
 
-    def dictionary_should_not_contain_value(self, dictionary, value, msg=None):
+    def dictionary_should_not_contain_value(self, dictionary, value, msg=None,
+                                            ignore_case=False):
         """Fails if ``value`` is found from ``dictionary``.
 
-        See `List Should Contain Value` for an explanation of ``msg``.
+        Use the ``msg`` argument to override the default error message.
 
-        The given dictionary is never altered by this keyword.
+        The ``ignore_case`` argument can be used to make comparison case-insensitive.
+        See the `Ignore case` section for more details. This option is new in
+        Robot Framework 7.0.
         """
         self._validate_dictionary(dictionary)
-        default = "Dictionary contains value '%s'." % value
-        _verify_condition(not value in dictionary.values(), default, msg)
+        norm = Normalizer(ignore_case)
+        _verify_condition(
+            norm.normalize_value(value) not in norm.normalize(dictionary).values(),
+            f"Dictionary contains value '{value}'.", msg
+        )
 
-    def dictionaries_should_be_equal(self, dict1, dict2, msg=None, values=True):
+    def dictionaries_should_be_equal(self, dict1, dict2, msg=None, values=True,
+                                     ignore_keys=None, ignore_case=False):
         """Fails if the given dictionaries are not equal.
 
         First the equality of dictionaries' keys is checked and after that all
@@ -711,33 +792,70 @@ class _Dictionary(object):
         are listed in the error message. The types of the dictionaries do not
         need to be same.
 
+        ``ignore_keys`` can be used to provide a list of keys to ignore in the
+        comparison. It can be an actual list or a Python list literal. This
+        option is new in Robot Framework 6.1. It works recursively with nested
+        dictionaries starting from Robot Framework 7.0.
+
+        Examples:
+        | Dictionaries Should Be Equal | ${dict} | ${expected} |
+        | Dictionaries Should Be Equal | ${dict} | ${expected} | ignore_keys=${ignored} |
+        | Dictionaries Should Be Equal | ${dict} | ${expected} | ignore_keys=['key1', 'key2'] |
+
         See `Lists Should Be Equal` for more information about configuring
         the error message with ``msg`` and ``values`` arguments.
 
-        The given dictionaries are never altered by this keyword.
+        The ``ignore_case`` argument can be used to make comparison case-insensitive.
+        See the `Ignore case` section for more details. This option is new in
+        Robot Framework 7.0.
         """
-        self._validate_dictionary(dict1)
-        self._validate_dictionary(dict2, 2)
-        keys = self._keys_should_be_equal(dict1, dict2, msg, values)
-        self._key_values_should_be_equal(keys, dict1, dict2, msg, values)
+        self._validate_dictionary(dict1, dict2)
+        normalizer = Normalizer(ignore_case, ignore_keys=ignore_keys)
+        dict1 = normalizer.normalize(dict1)
+        dict2 = normalizer.normalize(dict2)
+        self._should_have_same_keys(dict1, dict2, msg, values)
+        self._should_have_same_values(dict1, dict2, msg, values)
+
+    def _should_have_same_keys(self, dict1, dict2, message, values, validate_both=True):
+        missing = seq2str([k for k in dict2 if k not in dict1])
+        error = ''
+        if missing:
+            error = f"Following keys missing from first dictionary: {missing}"
+        if validate_both:
+            missing = seq2str([k for k in dict1 if k not in dict2])
+            if missing:
+                error += f"\nFollowing keys missing from second dictionary: {missing}"
+        if error:
+            _report_error(error.strip(), message, values)
+
+    def _should_have_same_values(self, dict1, dict2, message, values):
+        errors = []
+        for key in dict2:
+            try:
+                assert_equal(dict1[key], dict2[key], msg=f'Key {key}')
+            except AssertionError as err:
+                errors.append(str(err))
+        if errors:
+            error = '\n'.join([f'Following keys have different values:', *errors])
+            _report_error(error, message, values)
 
     def dictionary_should_contain_sub_dictionary(self, dict1, dict2, msg=None,
-                                                 values=True):
+                                                 values=True, ignore_case=False):
         """Fails unless all items in ``dict2`` are found from ``dict1``.
 
         See `Lists Should Be Equal` for more information about configuring
         the error message with ``msg`` and ``values`` arguments.
 
-        The given dictionaries are never altered by this keyword.
+        The ``ignore_case`` argument can be used to make comparison case-insensitive.
+        See the `Ignore case` section for more details. This option is new in
+        Robot Framework 7.0.
         """
-        self._validate_dictionary(dict1)
-        self._validate_dictionary(dict2, 2)
-        keys = self.get_dictionary_keys(dict2)
-        diffs = [unic(k) for k in keys if k not in dict1]
-        default = "Following keys missing from first dictionary: %s" \
-                  % ', '.join(diffs)
-        _verify_condition(not diffs, default, msg, values)
-        self._key_values_should_be_equal(keys, dict1, dict2, msg, values)
+        self._validate_dictionary(dict1, dict2)
+        normalizer = Normalizer(ignore_case)
+        dict1 = normalizer.normalize(dict1)
+        dict2 = normalizer.normalize(dict2)
+        self._should_have_same_keys(dict1, dict2, msg, values, validate_both=False)
+        self._should_have_same_values(dict1, dict2, msg, values)
 
     def log_dictionary(self, dictionary, level='INFO'):
         """Logs the size and contents of the ``dictionary`` using given ``level``.
@@ -756,45 +874,19 @@ class _Dictionary(object):
         elif len(dictionary) == 1:
             yield 'Dictionary has one item:'
         else:
-            yield 'Dictionary size is %d and it contains following items:' % len(dictionary)
+            yield f'Dictionary size is {len(dictionary)} and it contains following items:'
         for key in self.get_dictionary_keys(dictionary):
-            yield '%s: %s' % (key, dictionary[key])
+            yield f'{key}: {dictionary[key]}'
 
-    def _keys_should_be_equal(self, dict1, dict2, msg, values):
-        keys1 = self.get_dictionary_keys(dict1)
-        keys2 = self.get_dictionary_keys(dict2)
-        miss1 = [unic(k) for k in keys2 if k not in dict1]
-        miss2 = [unic(k) for k in keys1 if k not in dict2]
-        error = []
-        if miss1:
-            error += ['Following keys missing from first dictionary: %s'
-                      % ', '.join(miss1)]
-        if miss2:
-            error += ['Following keys missing from second dictionary: %s'
-                      % ', '.join(miss2)]
-        _verify_condition(not error, '\n'.join(error), msg, values)
-        return keys1
-
-    def _key_values_should_be_equal(self, keys, dict1, dict2, msg, values):
-        diffs = list(self._yield_dict_diffs(keys, dict1, dict2))
-        default = 'Following keys have different values:\n' + '\n'.join(diffs)
-        _verify_condition(not diffs, default, msg, values)
-
-    def _yield_dict_diffs(self, keys, dict1, dict2):
-        for key in keys:
-            try:
-                assert_equal(dict1[key], dict2[key], msg='Key %s' % (key,))
-            except AssertionError as err:
-                yield unic(err)
-
-    def _validate_dictionary(self, dictionary, position=1):
-        if is_string(dictionary) or is_number(dictionary):
-            raise TypeError("Expected argument %d to be a dictionary or dictionary-like, "
-                            "got %s instead." % (position, type_name(dictionary)))
+    def _validate_dictionary(self, *dictionaries):
+        for index, dictionary in enumerate(dictionaries, start=1):
+            if not is_dict_like(dictionary):
+                raise TypeError(f"Expected argument {index} to be a dictionary, "
+                                f"got {type_name(dictionary)} instead.")
 
 
 class Collections(_List, _Dictionary):
-    """A test library providing keywords for handling lists and dictionaries.
+    """A library providing keywords for handling lists and dictionaries.
 
     ``Collections`` is Robot Framework's standard library that provides a
     set of keywords for handling Python lists and dictionaries. This
@@ -803,14 +895,18 @@ class Collections(_List, _Dictionary):
     From Dictionary`) and for verifying their contents (e.g. `Lists
     Should Be Equal`, `Dictionary Should Contain Value`).
 
+    == Table of contents ==
+
+    %TOC%
+
     = Related keywords in BuiltIn =
 
     Following keywords in the BuiltIn library can also be used with
     lists and dictionaries:
 
-    | = Keyword Name =             | = Applicable With = | = Comment = |
+    | = Keyword Name =             | = Applicable With = |
     | `Create List`                | lists |
-    | `Create Dictionary`          | dicts | Was in Collections until RF 2.9. |
+    | `Create Dictionary`          | dicts |
     | `Get Length`                 | both  |
     | `Length Should Be`           | both  |
     | `Should Be Empty`            | both  |
@@ -824,13 +920,35 @@ class Collections(_List, _Dictionary):
     = Using with list-like and dictionary-like objects =
 
     List keywords that do not alter the given list can also be used
-    with tuples, and to some extend also with other iterables.
+    with tuples, and to some extent also with other iterables.
     `Convert To List` can be used to convert tuples and other iterables
     to Python ``list`` objects.
 
-    Similarly dictionary keywords can, for most parts, be used with other
+    Similarly, dictionary keywords can, for most parts, be used with other
     mappings. `Convert To Dictionary` can be used if real Python ``dict``
     objects are needed.
+
+    = Ignore case =
+
+    Various keywords support ignoring case in comparisons by using the optional
+    ``ignore_case`` argument. Case-insensitivity can be enabled by using
+    ``ignore_case=True`` (see `Boolean arguments`) and it works recursively.
+    With dictionaries, it is also possible to use special values ``keys`` and
+    ``values`` to normalize only keys or values, respectively. These options
+    themselves are case-insensitive and also singular forms ``key`` and
+    ``value`` are supported.
+
+    If a dictionary contains keys that normalize to the same value, e.g.
+    ``{'a': 1, 'A': 2}``, normalizing keys causes an error.
+
+    Examples:
+    | `Lists Should Be Equal`        | ${list1} | ${list2} | ignore_case=True   |
+    | `Dictionaries Should Be Equal` | ${dict1} | ${dict2} | ignore_case=values |
+
+    Notice that some keywords accept also an older ``case_insensitive`` argument
+    in addition to ``ignore_case``. The latter is new in Robot Framework 7.0 and
+    should be used unless there is a need to support older versions. The old
+    argument is considered deprecated and will eventually be removed.
 
     = Boolean arguments =
 
@@ -843,21 +961,9 @@ class Collections(_List, _Dictionary):
     regardless their value, and other argument types are tested using the same
     [http://docs.python.org/library/stdtypes.html#truth|rules as in Python].
 
-    True examples:
-    | `Should Contain Match` | ${list} | ${pattern} | case_insensitive=True    | # Strings are generally true.    |
-    | `Should Contain Match` | ${list} | ${pattern} | case_insensitive=yes     | # Same as the above.             |
-    | `Should Contain Match` | ${list} | ${pattern} | case_insensitive=${TRUE} | # Python ``True`` is true.       |
-    | `Should Contain Match` | ${list} | ${pattern} | case_insensitive=${42}   | # Numbers other than 0 are true. |
-
-    False examples:
-    | `Should Contain Match` | ${list} | ${pattern} | case_insensitive=False    | # String ``false`` is false.   |
-    | `Should Contain Match` | ${list} | ${pattern} | case_insensitive=no       | # Also string ``no`` is false. |
-    | `Should Contain Match` | ${list} | ${pattern} | case_insensitive=${EMPTY} | # Empty string is false.       |
-    | `Should Contain Match` | ${list} | ${pattern} | case_insensitive=${FALSE} | # Python ``False`` is false.   |
-    | `Lists Should Be Equal` | ${x}   | ${y} | Custom error | values=no values | # ``no values`` works with ``values`` argument |
-
-    Considering string ``NONE`` false is new in Robot Framework 3.0.3 and
-    considering also ``OFF`` and ``0`` false is new in Robot Framework 3.1.
+    | `Should Contain Match` | ${list} | ${pattern} | ignore_case=True  |
+    | `Should Contain Match` | ${list} | ${pattern} | ignore_case=False |
+    | `Lists Should Be Equal` | ${list1} | ${list2} | Custom error | no values |
 
     = Data in examples =
 
@@ -869,15 +975,16 @@ class Collections(_List, _Dictionary):
     Dictionary keywords use similar ``${Dx}`` variables. For example, ``${D1}``
     means ``{'a': 1}`` and ``${D3}`` means ``{'a': 1, 'b': 2, 'c': 3}``.
     """
+
     ROBOT_LIBRARY_SCOPE = 'GLOBAL'
     ROBOT_LIBRARY_VERSION = get_version()
 
     def should_contain_match(self, list, pattern, msg=None,
-                             case_insensitive=False,
-                             whitespace_insensitive=False):
+                             case_insensitive: 'bool|None' = None,
+                             whitespace_insensitive: 'bool|None' = None,
+                             ignore_case: bool = False,
+                             ignore_whitespace: bool = False):
         """Fails if ``pattern`` is not found in ``list``.
-
-        See `List Should Contain Value` for an explanation of ``msg``.
 
         By default, pattern matching is similar to matching files in a shell
         and is case-sensitive and whitespace-sensitive. In the pattern syntax,
@@ -888,74 +995,88 @@ class Collections(_List, _Dictionary):
         If you prepend ``regexp=`` to your pattern, your pattern will be used
         according to the Python
         [http://docs.python.org/library/re.html|re module] regular expression
-        syntax. Important note: Backslashes are an escape character, and must
-        be escaped with another backslash (e.g. ``regexp=\\\\d{6}`` to search for
-        ``\\d{6}``). See `BuiltIn.Should Match Regexp` for more details.
+        syntax. Notice that the backslash character often used with regular
+        expressions is an escape character in Robot Framework data and needs
+        to be escaped with another backslash like ``regexp=\\\\d{6}``. See
+        `BuiltIn.Should Match Regexp` for more details.
 
-        If ``case_insensitive`` is given a true value (see `Boolean arguments`),
-        the pattern matching will ignore case.
+        Matching is case-sensitive by default, but that can be changed by giving
+        the ``ignore_case`` argument a true value (see `Boolean arguments`).
+        This argument is new in Robot Framework 7.0, but with earlier versions
+        it is possible to use ``case_insensitive`` for the same purpose.
 
-        If ``whitespace_insensitive`` is given a true value (see `Boolean
-        arguments`), the pattern matching will ignore whitespace.
+        It is possible to ignore all whitespace by giving the ``ignore_whitespace``
+        argument a true value. This argument is new in Robot Framework 7.0 as well,
+        and with earlier versions it is possible to use ``whitespace_insensitive``.
+
+        Notice that both ``case_insensitive`` and ``whitespace_insensitive``
+        are considered deprecated. They will eventually be removed.
 
         Non-string values in lists are ignored when matching patterns.
 
-        The given list is never altered by this keyword.
-
-        See also ``Should Not Contain Match``.
+        Use the ``msg`` argument to override the default error message.
 
         Examples:
         | Should Contain Match | ${list} | a*              | | | # Match strings beginning with 'a'. |
         | Should Contain Match | ${list} | regexp=a.*      | | | # Same as the above but with regexp. |
         | Should Contain Match | ${list} | regexp=\\\\d{6} | | | # Match strings containing six digits. |
-        | Should Contain Match | ${list} | a*  | case_insensitive=True       | | # Match strings beginning with 'a' or 'A'. |
-        | Should Contain Match | ${list} | ab* | whitespace_insensitive=yes  | | # Match strings beginning with 'ab' with possible whitespace ignored. |
-        | Should Contain Match | ${list} | ab* | whitespace_insensitive=true | case_insensitive=true | # Same as the above but also ignore case. |
+        | Should Contain Match | ${list} | a*  | ignore_case=True       | | # Match strings beginning with 'a' or 'A'. |
+        | Should Contain Match | ${list} | ab* | ignore_whitespace=yes  | | # Match strings beginning with 'ab' with possible whitespace ignored. |
+        | Should Contain Match | ${list} | ab* | ignore_whitespace=true | ignore_case=true | # Same as the above but also ignore case. |
         """
         _List._validate_list(self, list)
-        matches = _get_matches_in_iterable(list, pattern, case_insensitive,
-                                           whitespace_insensitive)
-        default = "%s does not contain match for pattern '%s'." \
-                  % (seq2str2(list), pattern)
+        matches = self._get_matches(list, pattern, case_insensitive,
+                                    whitespace_insensitive, ignore_case,
+                                    ignore_whitespace)
+        default = f"{seq2str2(list)} does not contain match for pattern '{pattern}'."
         _verify_condition(matches, default, msg)
 
     def should_not_contain_match(self, list, pattern, msg=None,
-                                 case_insensitive=False,
-                                 whitespace_insensitive=False):
+                                 case_insensitive: 'bool|None' = None,
+                                 whitespace_insensitive: 'bool|None' = None,
+                                 ignore_case: bool = False,
+                                 ignore_whitespace: bool = False):
         """Fails if ``pattern`` is found in ``list``.
 
         Exact opposite of `Should Contain Match` keyword. See that keyword
         for information about arguments and usage in general.
         """
         _List._validate_list(self, list)
-        matches = _get_matches_in_iterable(list, pattern, case_insensitive,
-                                           whitespace_insensitive)
-        default = "%s contains match for pattern '%s'." \
-                  % (seq2str2(list), pattern)
+        matches = self._get_matches(list, pattern, case_insensitive,
+                                    whitespace_insensitive, ignore_case,
+                                    ignore_whitespace)
+        default = f"{seq2str2(list)} contains match for pattern '{pattern}'."
         _verify_condition(not matches, default, msg)
 
-    def get_matches(self, list, pattern, case_insensitive=False,
-                    whitespace_insensitive=False):
+    def get_matches(self, list, pattern,
+                    case_insensitive: 'bool|None' = None,
+                    whitespace_insensitive: 'bool|None' = None,
+                    ignore_case: bool = False,
+                    ignore_whitespace: bool = False):
         """Returns a list of matches to ``pattern`` in ``list``.
 
-        For more information on ``pattern``, ``case_insensitive``, and
-        ``whitespace_insensitive``, see `Should Contain Match`.
+        For more information on ``pattern``, ``case_insensitive/ignore_case``, and
+        ``whitespace_insensitive/ignore_whitespace``, see `Should Contain Match`.
 
         Examples:
         | ${matches}= | Get Matches | ${list} | a* | # ${matches} will contain any string beginning with 'a' |
         | ${matches}= | Get Matches | ${list} | regexp=a.* | # ${matches} will contain any string beginning with 'a' (regexp version) |
-        | ${matches}= | Get Matches | ${list} | a* | case_insensitive=${True} | # ${matches} will contain any string beginning with 'a' or 'A' |
+        | ${matches}= | Get Matches | ${list} | a* | ignore_case=True | # ${matches} will contain any string beginning with 'a' or 'A' |
         """
         _List._validate_list(self, list)
-        return _get_matches_in_iterable(list, pattern, case_insensitive,
-                                        whitespace_insensitive)
+        return self._get_matches(list, pattern, case_insensitive,
+                                 whitespace_insensitive, ignore_case,
+                                 ignore_whitespace)
 
-    def get_match_count(self, list, pattern, case_insensitive=False,
-                        whitespace_insensitive=False):
+    def get_match_count(self, list, pattern,
+                        case_insensitive: 'bool|None' = None,
+                        whitespace_insensitive: 'bool|None' = None,
+                        ignore_case: bool = False,
+                        ignore_whitespace: bool = False):
         """Returns the count of matches to ``pattern`` in ``list``.
 
-        For more information on ``pattern``, ``case_insensitive``, and
-        ``whitespace_insensitive``, see `Should Contain Match`.
+        For more information on ``pattern``, ``case_insensitive/ignore_case``, and
+        ``whitespace_insensitive/ignore_whitespace``, see `Should Contain Match`.
 
         Examples:
         | ${count}= | Get Match Count | ${list} | a* | # ${count} will be the count of strings beginning with 'a' |
@@ -964,32 +1085,131 @@ class Collections(_List, _Dictionary):
         """
         _List._validate_list(self, list)
         return len(self.get_matches(list, pattern, case_insensitive,
-                                    whitespace_insensitive))
+                                    whitespace_insensitive, ignore_case,
+                                    ignore_whitespace))
+
+    def _get_matches(self, iterable, pattern, case_insensitive=None,
+                     whitespace_insensitive=None, ignore_case=True,
+                     ignore_whitespace=False):
+        # `ignore_xxx` were added in RF  7.0 for consistency reasons.
+        # The idea is that they eventually replace `xxx_insensitive`.
+        # TODO: Emit deprecation warnings in RF 8.0.
+        if case_insensitive is not None:
+            ignore_case = case_insensitive
+        if whitespace_insensitive is not None:
+            ignore_whitespace = whitespace_insensitive
+        if not isinstance(pattern, str):
+            raise TypeError(f"Pattern must be string, got '{type_name(pattern)}'.")
+        regexp = False
+        if pattern.startswith('regexp='):
+            pattern = pattern[7:]
+            regexp = True
+        elif pattern.startswith('glob='):
+            pattern = pattern[5:]
+        matcher = Matcher(pattern, caseless=ignore_case, spaceless=ignore_whitespace,
+                          regexp=regexp)
+        return [item for item in iterable if isinstance(item, str) and matcher.match(item)]
 
 
-def _verify_condition(condition, default_msg, msg, values=False):
-    if condition:
-        return
-    if not msg:
-        msg = default_msg
-    elif is_truthy(values) and str(values).upper() != 'NO VALUES':
-        msg += '\n' + default_msg
-    raise AssertionError(msg)
+def _verify_condition(condition, default_message, message, values=False):
+    if not condition:
+        _report_error(default_message, message, values)
 
 
-def _get_matches_in_iterable(iterable, pattern, case_insensitive=False,
-                             whitespace_insensitive=False):
-    if not is_string(pattern):
-        raise TypeError("Pattern must be string, got '%s'." % type_name(pattern))
-    regexp = False
-    if pattern.startswith('regexp='):
-        pattern = pattern[7:]
-        regexp = True
-    elif pattern.startswith('glob='):
-        pattern = pattern[5:]
-    matcher = Matcher(pattern,
-                      caseless=is_truthy(case_insensitive),
-                      spaceless=is_truthy(whitespace_insensitive),
-                      regexp=regexp)
-    return [string for string in iterable
-            if is_string(string) and matcher.match(string)]
+def _report_error(default_message, message, values=False):
+    if not message:
+        message = default_message
+    elif values and not (isinstance(values, str) and values.upper() == 'NO VALUES'):
+        message += '\n' + default_message
+    raise AssertionError(message)
+
+
+class Normalizer:
+
+    def __init__(self, ignore_case=False, ignore_order=False, ignore_keys=None):
+        print(ignore_case)
+        self.ignore_case = ignore_case
+        if isinstance(ignore_case, str):
+            self.ignore_key_case = ignore_case.upper() not in ('VALUE', 'VALUES')
+            self.ignore_value_case = ignore_case.upper() not in ('KEY', 'KEYS')
+        else:
+            self.ignore_key_case = self.ignore_value_case = self.ignore_case
+        self.ignore_order = ignore_order
+        self.ignore_keys = self._parse_ignored_keys(ignore_keys)
+
+    def _parse_ignored_keys(self, ignore_keys):
+        if not ignore_keys:
+            return set()
+        try:
+            if isinstance(ignore_keys, str):
+                ignore_keys = literal_eval(ignore_keys)
+            if not is_list_like(ignore_keys):
+                raise ValueError
+        except Exception:
+            raise ValueError(f"'ignore_keys' value '{ignore_keys}' cannot be "
+                             f"converted to a list.")
+        return {self.normalize_key(k) for k in ignore_keys}
+
+    def normalize(self, value):
+        if not self:
+            return value
+        if isinstance(value, str):
+            return self.normalize_string(value)
+        if is_dict_like(value):
+            return self.normalize_dict(value)
+        if is_list_like(value):
+            return self.normalize_list(value)
+        return value
+
+    def normalize_string(self, value):
+        return value.casefold() if self.ignore_case else value
+
+    def normalize_list(self, value):
+        cls = type(value)
+        if self.ignore_order:
+            value = sorted(value)
+        value = [self.normalize(v) for v in value]
+        return self._try_to_preserve_type(value, cls)
+
+    def _try_to_preserve_type(self, value, cls):
+        # Try to preserve original type. Most importantly, preserve tuples to
+        # allow using them as dictionary keys.
+        try:
+            return cls(value)
+        except TypeError:
+            return value
+
+    def normalize_dict(self, value):
+        cls = type(value)
+        result = {}
+        for key in value:
+            normalized = self.normalize_key(key)
+            if normalized in self.ignore_keys:
+                continue
+            if normalized in result:
+                raise AssertionError(
+                    f"Dictionary {value} contains multiple keys that are normalized "
+                    f"to '{normalized}'. Try normalizing only dictionary values like "
+                    f"'ignore_case=values'."
+                )
+            result[normalized] = self.normalize_value(value[key])
+        return self._try_to_preserve_type(result, cls)
+
+    def normalize_key(self, key):
+        ignore_case, self.ignore_case = self.ignore_case, self.ignore_key_case
+        try:
+            return self.normalize(key)
+        finally:
+            self.ignore_case = ignore_case
+
+    def normalize_value(self, value):
+        ignore_case, self.ignore_case = self.ignore_case, self.ignore_value_case
+        try:
+            return self.normalize(value)
+        finally:
+            self.ignore_case = ignore_case
+
+    def __bool__(self):
+        return bool(self.ignore_case
+                    or self.ignore_order
+                    or getattr(self, 'ignore_keys', False))

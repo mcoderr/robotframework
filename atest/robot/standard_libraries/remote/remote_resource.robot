@@ -1,5 +1,6 @@
 *** Settings ***
 Resource          atest_resource.robot
+Resource          ../../libdoc/libdoc_resource.robot
 
 *** Variables ***
 ${PORT FILE}      %{TEMPDIR}${/}remote_port.txt
@@ -12,7 +13,7 @@ Run Remote Tests
     Run Tests    --variable PORT:${port}    standard_libraries/remote/${tests}
     [Teardown]    Run Keyword If    '${stop server}' == 'yes'
     ...    Stop Remote Server    ${server}
-    [Return]    ${port}
+    RETURN    ${port}
 
 Start Remote Server
     [Arguments]    ${server}    ${port}=0
@@ -23,7 +24,7 @@ Start Remote Server
     ...    alias=${server}    stdout=${STDOUT FILE}    stderr=STDOUT
     Wait Until Created    ${PORT FILE}    30s
     ${port} =    Get File    ${PORT FILE}
-    [Return]    ${port}
+    RETURN    ${port}
 
 Stop Remote Server
     [Arguments]    ${server}

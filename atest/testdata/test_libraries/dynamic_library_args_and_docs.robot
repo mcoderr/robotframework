@@ -2,7 +2,6 @@
 Library           classes.ArgDocDynamicLibrary
 Library           classes.InvalidGetDocDynamicLibrary
 Library           classes.InvalidGetArgsDynamicLibrary
-Library           ArgDocDynamicJavaLibrary
 
 *** Test Cases ***
 Documentation and Argument Boundaries Work With No Args
@@ -21,6 +20,15 @@ Documentation and Argument Boundaries Work With Default Args
     One Or Two Args    1    2
     One Or Two Args    1    2    3
 
+Default value as tuple
+    [Documentation]    FAIL Keyword 'classes.ArgDocDynamicLibrary.Default As Tuple' expected 1 to 3 arguments, got 4.
+    Default as tuple    1
+    Default as tuple    1    2
+    Default as tuple    1    2    3
+    Default as tuple    1    d2=3
+    Default as tuple    1    FALSE    3
+    Default as tuple    1    2    3    4
+
 Documentation and Argument Boundaries Work With Varargs
     Many Args
     Many Args    1    2    3    4    5    6    7    8    9    10    11    12    13
@@ -31,23 +39,3 @@ Documentation and Argument Boundaries Work When Argspec is None
 
 Multiline Documentation
     Multiline
-
-Documentation and Argument Boundaries Work With No Args In Java
-    [Documentation]    FAIL Keyword 'ArgDocDynamicJavaLibrary.Java No Arg' expected 0 arguments, got 1.
-    Java No Arg
-    Java No Arg    foo
-
-Documentation and Argument Boundaries Work With Mandatory Args In Java
-    [Documentation]    FAIL Keyword 'ArgDocDynamicJavaLibrary.Java One Arg' expected 1 argument, got 0.
-    Java One Arg    arg
-    Java One Arg
-
-Documentation and Argument Boundaries Work With Default Args In Java
-    [Documentation]    FAIL Keyword 'ArgDocDynamicJavaLibrary.Java One Or Two Args' expected 1 to 2 arguments, got 3.
-    Java One or Two Args    1
-    Java One or Two Args    1    2
-    Java One or Two Args    1    2    3
-
-Documentation and Argument Boundaries Work With Varargs In Java
-    Java Many Args
-    Java Many Args    1    2    3    4    5    6    7    8    9    10    11    12    13

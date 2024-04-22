@@ -199,6 +199,12 @@ Lists Should Be Equal With Named Indices As Dictionary
 Lists Should Be Equal With Named Indices As Dictionary With Too Few Values
     Check Test Case    ${TEST NAME}
 
+Lists Should Be Equal Ignore Order
+    Check Test Case    ${TEST NAME}
+
+Ignore Order Is Recursive
+    Check Test Case    ${TEST NAME}
+
 List Should Contain Sub List
     Check Test Case    ${TEST NAME}
 
@@ -228,7 +234,8 @@ Log List With Different Lists
     ${tc} =    Check Test Case    ${TEST NAME}
     Check Log Message    ${tc.kws[0].msgs[0]}    List is empty.    INFO
     Check Log Message    ${tc.kws[1].msgs[0]}    List has one item:\n1
-    Check Log Message    ${tc.kws[4].msgs[0]}    List length is 2 and it contains following items:\n 0: (1, 2, 3)\n 1: 3.12
+    Check Log Message    ${tc.kws[4].msgs[0]}    List has one item:\n(1, 2, 3)
+    Check Log Message    ${tc.kws[6].msgs[0]}    List length is 2 and it contains following items:\n0: (1, 2, 3)\n1: 3.12
 
 Count Matches In List Case Insensitive
     Check Test Case    ${TEST NAME}
@@ -324,4 +331,22 @@ List Should Not Contain Value, Value Found and Own Error Message Glob
     Check Test Case    ${TEST NAME}
 
 Check List Error
+    Check Test Case    ${TEST NAME}
+
+Lists Should Be Equal With Ignore Case
+    Check Test Case    ${TEST NAME}
+
+List Should Contain Value With Ignore Case
+    Check Test Case    ${TEST NAME}
+
+List Should Not Contain Value With Ignore Case Does Contain Value
+    Check Test Case    ${TEST NAME}
+
+List Should Contain Sub List With Ignore Case
+    Check Test Case    ${TEST NAME}
+
+List Should Not Contain Duplicates With Ignore Case
+    Check Test Case    ${TEST NAME}
+
+List Should Contain Value With Ignore Case And Nested List and Dictionary
     Check Test Case    ${TEST NAME}

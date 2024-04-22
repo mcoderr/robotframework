@@ -22,24 +22,14 @@ Synopsis
 
 ::
 
-    rebot [options] robot_outputs
-    python|jython|ipy|pypy -m robot.rebot [options] robot_outputs
-    python|jython|ipy|pypy path/to/robot/rebot.py [options] robot_outputs
-    java -jar robotframework.jar rebot [options] robot_outputs
+    rebot [options] outputs
+    python -m robot.rebot [options] outputs
+    python path/to/robot/rebot.py [options] outputs
 
-The most common way to use Rebot is using the ``rebot`` `runner script`_.
-Alternatively it is possible to execute the installed `robot.rebot module`__
-or `robot/rebot.py file`__ directly using the selected interpreter. The final
-alternative is using the `standalone JAR distribution`_.
-
-.. note::
-    Versions prior to Robot Framework 3.0 installed the ``rebot`` script only
-    with Python, and used ``jyrebot`` and ``ipyrebot`` scripts with Jython and
-    IronPython, respectively. The old interpreter specific scripts were
-    removed in Robot Framework 3.1 and nowadays ``rebot`` must always be used.
-
-__ `Executing installed robot module`_
-__ `Executing installed robot directory`_
+The most common way to use Rebot is using the ``rebot`` command.
+Alternatively it is possible to execute the installed ``robot.rebot``
+module or the ``robot/rebot.py`` file using the selected Python
+interpreter.
 
 Specifying options and arguments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -71,9 +61,8 @@ are processed and they have conflicting modes.
 __ `Test execution`_
 __ `Task execution`_
 
-
-Creating different reports and logs
------------------------------------
+Creating reports, logs and output files
+---------------------------------------
 
 You can use Rebot for creating the same reports and logs that
 are created automatically during the test execution. Of course, it is
@@ -89,10 +78,14 @@ Another common usage is creating only the output file when running tests
 (log and report generation can be disabled with  `--log NONE
 --report NONE`) and generating logs and reports later. Tests can,
 for example, be executed on different environments, output files collected
-to a central place, and reports and logs created there. This approach can
-also work very well if generating reports and logs takes a lot of time when
-running tests on Jython. Disabling log and report generation and generating
-them later with Rebot can save a lot of time and use less memory.
+to a central place, and reports and logs created there.
+
+Rebot does not create XML output files by default, but it is possible to
+create them by using the :option:`--output (-o)` option. Log and report
+are created by default, but they can be disabled by using value `NONE`
+(case-insensitive) if they are not needed::
+
+   rebot --include smoke --output smoke.xml --log none --report none original.xml
 
 Combining outputs
 -----------------
@@ -131,10 +124,19 @@ Merging is done by using :option:`--merge (-R)` option which changes the way how
 Rebot combines two or more output files. This option itself takes no
 arguments and all other command line options can be used with it normally::
 
-   rebot --merge --name Example --critical regression original.xml merged.xml
+   rebot --merge original.xml merged.xml
+   rebot --merge --name Example first.xml second.xml third.xml
 
-How merging works in practice is explained in the following sections discussing
-its two main use cases.
+
+When suites are merged, documentation, suite setup and suite teardown are got
+from the last merged suite. Suite metadata from all merged suites is preserved
+so that values in latter suites have precedence.
+
+How merging tests works is explained in the following sections discussing
+the two main merge use cases.
+
+.. note:: Getting suite documentation and metadata from merged suites is new in
+          Robot Framework 6.0.
 
 Merging re-executed tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -151,7 +153,10 @@ that you get separate test suites and possibly already fixed failures are
 also shown. In this situation it is better to use :option:`--merge (-R)`
 option to tell Rebot to merge the results instead. In practice this
 means that tests from the latter test runs replace tests in the original.
-The usage is best illustrated by a practical example using
+An exception to this rule is that skipped_ tests in latter runs are ignored
+and original tests preserved.
+
+This usage is best illustrated by a practical example using
 :option:`--rerunfailed` and :option:`--merge` together::
 
   robot --output original.xml tests                          # first execute all tests
@@ -165,6 +170,8 @@ Merged results must always have same top-level test suite. Tests and suites
 in merged outputs that are not found from the original output are added into
 the resulting output. How this works in practice is discussed in the next
 section.
+
+.. note:: Ignoring skipped tests in latter runs is new in Robot Framework 4.1.
 
 Merging suites executed in pieces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -182,3 +189,27 @@ suites found from all given output files. If some test is found from multiple
 outputs, latest results replace the earlier ones like explained in the previous
 section. Also this merging strategy requires the top-level test suites to
 be same in all outputs.
+
+JSON output files
+-----------------
+
+Rebot can create and process output files also in the JSON_ format.
+Creating JSON output files is done using the normal :option:`--output` option
+so that the specified file has a :file:`.json` extension::
+
+   rebot --output output.json output.xml
+
+When reading output files, JSON files are automatically recognized by
+the extension::
+
+   rebot output.json
+   rebot output1.json output2.json
+
+When combining or merging results, it is possible to mix JSON and XML files::
+
+   rebot output1.xml output2.json
+   rebot --merge original.xml rerun.json
+
+The JSON output file structure is documented in the :file:`result.json` `schema file`_.
+
+.. note:: Support for JSON output files is new in Robot Framework 7.0.

@@ -69,16 +69,19 @@ Retry count must be positive
     Check Test Case    ${TESTNAME} 1
     Check Test Case    ${TESTNAME} 2
 
-Invalid Number Of Arguments Inside Wait Until Keyword Succeeds
+No retry after syntax error
     Check Test Case    ${TESTNAME}
 
-Invalid Keyword Inside Wait Until Keyword Succeeds
+No retry if keyword name is not string
     Check Test Case    ${TESTNAME}
 
-Keyword Not Found Inside Wait Until Keyword Succeeds
+Retry if keyword is not found
     Check Test Case    ${TESTNAME}
 
-Fail With Nonexisting Variable Inside Wait Until Keyword Succeeds
+Retry if wrong number of arguments
+    Check Test Case    ${TESTNAME}
+
+Retry if variable is not found
     ${tc} =    Check Test Case    ${TESTNAME}
     Check Log Message    ${tc.kws[0].kws[0].kws[0].msgs[0]}    Variable '\${nonexisting}' not found.    FAIL
     Check Log Message    ${tc.kws[0].kws[1].kws[0].msgs[0]}    Variable '\${nonexisting}' not found.    FAIL
@@ -94,3 +97,29 @@ Pass With Initially Nonexisting Variable Inside Wait Until Keyword Succeeds
 Variable Values Should Not Be Visible In Keyword Arguments
     ${tc} =    Check Test Case    Pass With First Try
     Check Keyword Data    ${tc.kws[0].kws[0]}    BuiltIn.Log    args=\${HELLO}
+
+Strict retry interval
+    ${tc} =    Check Test Case    ${TESTNAME}
+    Length Should Be    ${tc.body[0].kws}    4
+    Elapsed Time Should Be Valid    ${tc.body[0].elapsed_time}    minimum=0.3    maximum=0.9
+
+Fail with strict retry interval
+    ${tc} =    Check Test Case    ${TESTNAME}
+    Length Should Be    ${tc.body[0].kws}    3
+    Elapsed Time Should Be Valid    ${tc.body[0].elapsed_time}    minimum=0.2    maximum=0.6
+
+Strict retry interval violation
+    ${tc} =    Check Test Case    ${TESTNAME}
+    Length Should Be    ${tc.body[0].kws}    4
+    Elapsed Time Should Be Valid    ${tc.body[0].elapsed_time}    minimum=0.4    maximum=1.2
+    FOR    ${index}    IN    1    3    5    7
+        Check Log Message    ${tc.body[0].body[${index}]}
+        ...    Keyword execution time ??? milliseconds is longer than retry interval 100 milliseconds.
+        ...    WARN    pattern=True
+    END
+
+Strict and invalid retry interval
+    Check Test Case    ${TESTNAME}
+
+Keyword name as variable
+    Check Test Case    ${TESTNAME}

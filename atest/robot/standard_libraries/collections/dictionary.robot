@@ -34,13 +34,22 @@ Shallow Copy Dictionary
 Deep Copy Dictionary
     Check Test Case    ${TEST NAME}
 
-Get Dictionary Keys
+Get Dictionary Keys Sorted
     Check Test Case    ${TEST NAME}
 
-Get Dictionary Values
+Get Dictionary Keys Unsorted
     Check Test Case    ${TEST NAME}
 
-Get Dictionary Items
+Get Dictionary Values Sorted
+    Check Test Case    ${TEST NAME}
+
+Get Dictionary Values Unsorted
+    Check Test Case    ${TEST NAME}
+
+Get Dictionary Items Sorted
+    Check Test Case    ${TEST NAME}
+
+Get Dictionary Items Unsorted
     Check Test Case    ${TEST NAME}
 
 Get Dictionary Keys/Values/Items When Keys Are Unorderable
@@ -50,93 +59,10 @@ Get From Dictionary
     Check Test Case    ${TEST NAME}
 
 Get From Dictionary With Invalid Key
-    Check Test Case    ${TEST NAME}
+    Check Test Case    ${TEST NAME} 1
+    Check Test Case    ${TEST NAME} 2
 
-Dictionary Should Contain Key
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Contain Key With Missing Key
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Contain Item
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Contain Item With Missing Key
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Contain Item With Wrong Value
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Not Contain Key
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Not Contain Key With Existing Key
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should (Not) Contain Key Does Not Require `has_key`
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Contain Value
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Contain Value With Missing Value
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Not Contain Value
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Not Contain Value With Existing Value
-    Check Test Case    ${TEST NAME}
-
-Dictionaries Should Be Equal
-    Check Test Case    ${TEST NAME}
-
-Dictionaries Of Different Type Should Be Equal
-    Check Test Case    ${TEST NAME}
-
-Dictionaries Should Equal With First Dictionary Missing Keys
-    Check Test Case    ${TEST NAME}
-
-Dictionaries Should Equal With Second Dictionary Missing Keys
-    Check Test Case    ${TEST NAME}
-
-Dictionaries Should Equal With Both Dictionaries Missing Keys
-    Check Test Case    ${TEST NAME}
-
-Dictionaries Should Be Equal With Different Keys And Own Error Message
-    Check Test Case    ${TEST NAME}
-
-Dictionaries Should Be Equal With Different Keys And Own And Default Error Messages
-    Check Test Case    ${TEST NAME}
-
-Dictionaries Should Be Equal With Different Values
-    Check Test Case    ${TEST NAME}
-
-Dictionaries Should Be Equal With Different Values And Own Error Message
-    Check Test Case    ${TEST NAME}
-
-Dictionaries Should Be Equal With Different Values And Own And Default Error Messages
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Contain Sub Dictionary
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Contain Sub Dictionary With Missing Keys
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Contain Sub Dictionary With Missing Keys And Own Error Message
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Contain Sub Dictionary With Missing Keys And Own And Default Error Message
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Contain Sub Dictionary With Different Value
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Contain Sub Dictionary With Different Value And Own Error Message
-    Check Test Case    ${TEST NAME}
-
-Dictionary Should Contain Sub Dictionary With Different Value And Own And Default Error Message
+Get From Dictionary With Default
     Check Test Case    ${TEST NAME}
 
 Log Dictionary With Different Log Levels

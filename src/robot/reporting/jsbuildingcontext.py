@@ -13,22 +13,22 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from datetime import datetime
 from contextlib import contextmanager
-from os.path import exists, dirname
+from pathlib import Path
 
 from robot.output.loggerhelper import LEVELS
-from robot.utils import (attribute_escape, get_link_path, html_escape,
-                         html_format, is_string, is_unicode, timestamp_to_secs,
-                         unic)
+from robot.utils import attribute_escape, get_link_path, html_escape, safe_str
 
+from .expandkeywordmatcher import ExpandKeywordMatcher
 from .stringcache import StringCache
 
 
-class JsBuildingContext(object):
+class JsBuildingContext:
 
-    def __init__(self, log_path=None, split_log=False, prune_input=False):
-        # log_path can be a custom object in unit tests
-        self._log_dir = dirname(log_path) if is_string(log_path) else None
+    def __init__(self, log_path=None, split_log=False, expand_keywords=None,
+                 prune_input=False):
+        self._log_dir = self._get_log_dir(log_path)
         self._split_log = split_log
         self._prune_input = prune_input
         self._strings = self._top_level_strings = StringCache()
@@ -36,26 +36,40 @@ class JsBuildingContext(object):
         self.split_results = []
         self.min_level = 'NONE'
         self._msg_links = {}
+        self._expand_matcher = ExpandKeywordMatcher(expand_keywords) \
+            if expand_keywords else None
+
+    def _get_log_dir(self, log_path):
+        # log_path can be a custom object in unit tests
+        if isinstance(log_path, Path):
+            return log_path.parent
+        if isinstance(log_path, str):
+            return Path(log_path).parent
+        return None
 
     def string(self, string, escape=True, attr=False):
-        if escape and string:
-            if not is_unicode(string):
-                string = unic(string)
+        if not string:
+            return self._strings.empty
+        if escape:
+            if not isinstance(string, str):
+                string = safe_str(string)
             string = (html_escape if not attr else attribute_escape)(string)
         return self._strings.add(string)
 
     def html(self, string):
-        return self.string(html_format(string), escape=False)
+        return self._strings.add(string, html=True)
 
     def relative_source(self, source):
+        if isinstance(source, str):
+            source = Path(source)
         rel_source = get_link_path(source, self._log_dir) \
-            if self._log_dir and source and exists(source) else ''
+            if self._log_dir and source and source.exists() else ''
         return self.string(rel_source)
 
-    def timestamp(self, time):
-        if not time:
+    def timestamp(self, ts: datetime) -> 'int|None':
+        if not ts:
             return None
-        millis = int(timestamp_to_secs(time) * 1000)
+        millis = round(ts.timestamp() * 1000)
         if self.basemillis is None:
             self.basemillis = millis
         return millis - self.basemillis
@@ -67,6 +81,14 @@ class JsBuildingContext(object):
     def create_link_target(self, msg):
         id = self._top_level_strings.add(msg.parent.id)
         self._msg_links[self._link_key(msg)] = id
+
+    def check_expansion(self, kw):
+        if self._expand_matcher is not None:
+            self._expand_matcher.match(kw)
+
+    @property
+    def expand_keywords(self):
+        return self._expand_matcher.matched_ids if self._expand_matcher else None
 
     def link(self, msg):
         return self._msg_links.get(self._link_key(msg))

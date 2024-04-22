@@ -1,5 +1,6 @@
 *** Settings ***
 Variables    extended_assign_vars.py
+Library      Collections
 
 *** Test Cases ***
 Set attributes to Python object
@@ -9,16 +10,31 @@ Set attributes to Python object
     ${VAR.attr3} =    Set Variable    ${42}
     Should Be Equal    ${VAR.attr}-${VAR.attr2}-${VAR.attr3}    new value-NV2-42
 
-Setting attribute to Java object
-    [Setup]    Should Be Equal    ${JVAR.javaInteger}:${JVAR.javaProperty}    -1:default
-    ${JVAR.javaInteger} =    Set Variable   ${42}
-    ${JVAR.javaProperty} =    Set Variable   value
-    Should Be Equal    ${JVAR.javaInteger}:${JVAR.javaProperty}    42:value
-
-Set attribute not directly in base
-    ${VAR.demeter.loves} =   Set Variable  this
+Set nested attribute
+    ${VAR.demeter.loves} =   Set Variable    this
     Should Be Equal    ${VAR.demeter.loves}    this
     Should Be Equal    ${VAR.demeter.hates}    THIS
+
+Set nested attribute when parent uses item access
+    &{body} =    Evaluate     {'data': [{'name': 'old value'}]}
+    ${body.data[0].name} =    Set Variable    new value
+    Should Be Equal    ${body.data[0].name}    new value
+
+Set item to list attribute
+    &{body} =                Evaluate        {'data': [0, 1, 2, 3]}
+    ${body.data}[${0}] =     Set Variable    firstVal
+    ${body.data}[-1] =       Set Variable    lastVal
+    ${body.data}[1:3] =      Create List     ${98}        middle    ${99}
+    ${EXPECTED_LIST} =       Create List     firstVal     ${98}     middle    ${99}     lastVal
+    Lists Should Be Equal    ${body.data}    ${EXPECTED_LIST}
+
+Set item to dict attribute
+    &{body} =                        Evaluate              {'data': {'key': 'val', 0: 1}}
+    ${body.data}[key] =              Set Variable          newVal
+    ${body.data}[${0}] =             Set Variable          ${2}
+    ${body.data}[newKey] =           Set Variable          newKeyVal
+    ${EXPECTED_DICT} =               Create Dictionary     key=newVal    ${0}=${2}    newKey=newKeyVal
+    Dictionaries Should Be Equal     ${body.data}          ${EXPECTED_DICT}
 
 Trying to set un-settable attribute
     [Documentation]    FAIL STARTS: Setting attribute 'not_settable' to variable '\${VAR}' failed: AttributeError:

@@ -16,34 +16,15 @@
 import os
 import os.path
 import sys
+from urllib.request import pathname2url as path_to_url
 
 from robot.errors import DataError
 
 from .encoding import system_decode
-from .platform import IRONPYTHON, PY_VERSION, PY2, WINDOWS
-from .robottypes import is_unicode
-from .unic import unic
+from .platform import WINDOWS
+from .robottypes import is_string
+from .unic import safe_str
 
-
-if IRONPYTHON and PY_VERSION == (2, 7, 8):
-    # https://github.com/IronLanguages/ironpython2/issues/371
-    def _abspath(path):
-        if os.path.isabs(path):
-            if not os.path.splitdrive(path)[0]:
-                drive = os.path.splitdrive(os.getcwd())[0]
-                return drive + path
-            return path
-        return os.path.abspath(path)
-else:
-    _abspath = os.path.abspath
-
-if PY2:
-    from urllib import pathname2url
-
-    def path_to_url(path):
-        return pathname2url(path.encode('UTF-8'))
-else:
-    from urllib.request import pathname2url as path_to_url
 
 if WINDOWS:
     CASE_INSENSITIVE_FILESYSTEM = True
@@ -63,9 +44,10 @@ def normpath(path, case_normalize=False):
        That includes Windows and also OSX in default configuration.
     4. Turn ``c:`` into ``c:\\`` on Windows instead of keeping it as ``c:``.
     """
-    if not is_unicode(path):
+    # FIXME: Support pathlib.Path
+    if not is_string(path):
         path = system_decode(path)
-    path = unic(path)  # Handles NFC normalization on OSX
+    path = safe_str(path)  # Handles NFC normalization on OSX
     path = os.path.normpath(path)
     if case_normalize and CASE_INSENSITIVE_FILESYSTEM:
         path = path.lower()
@@ -83,7 +65,7 @@ def abspath(path, case_normalize=False):
     3. Turn ``c:`` into ``c:\\`` on Windows instead of ``c:\\current\\path``.
     """
     path = normpath(path, case_normalize)
-    return normpath(_abspath(path), case_normalize)
+    return normpath(os.path.abspath(path), case_normalize)
 
 
 def get_link_path(target, base):
@@ -100,6 +82,7 @@ def get_link_path(target, base):
     if os.path.isabs(path):
         url = 'file:' + url
     return url
+
 
 def _get_link_path(target, base):
     target = abspath(target)
@@ -121,6 +104,7 @@ def _get_link_path(target, base):
     path = os.path.join(dirs_up, target[common_len + len(os.sep):])
     return os.path.normpath(path)
 
+
 def _common_path(p1, p2):
     """Returns the longest path common to p1 and p2.
 
@@ -128,6 +112,12 @@ def _common_path(p1, p2):
     path separators as such, so it may return invalid paths:
     commonprefix(('/foo/bar/', '/foo/baz.txt')) -> '/foo/ba' (instead of /foo)
     """
+    # os.path.dirname doesn't normalize leading double slash
+    # https://github.com/robotframework/robotframework/issues/3844
+    if p1.startswith('//'):
+        p1 = '/' + p1.lstrip('/')
+    if p2.startswith('//'):
+        p2 = '/' + p2.lstrip('/')
     while p1 and p2:
         if p1 == p2:
             return p1
@@ -146,11 +136,7 @@ def find_file(path, basedir='.', file_type=None):
         ret = _find_relative_path(path, basedir)
     if ret:
         return ret
-    default = file_type or 'File'
-    file_type = {'Library': 'Test library',
-                 'Variables': 'Variable file',
-                 'Resource': 'Resource file'}.get(file_type, default)
-    raise DataError("%s '%s' does not exist." % (file_type, path))
+    raise DataError(f"{file_type or 'File'} '{path}' does not exist.")
 
 
 def _find_absolute_path(path):
@@ -163,7 +149,7 @@ def _find_relative_path(path, basedir):
     for base in [basedir] + sys.path:
         if not (base and os.path.isdir(base)):
             continue
-        if not is_unicode(base):
+        if not is_string(base):
             base = system_decode(base)
         ret = os.path.abspath(os.path.join(base, path))
         if _is_valid_file(ret):

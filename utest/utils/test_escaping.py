@@ -1,7 +1,6 @@
 import unittest
 
-
-from robot.utils.asserts import assert_equal, assert_raises
+from robot.utils.asserts import assert_equal
 from robot.utils.escaping import escape, unescape, split_from_equals
 
 
@@ -11,8 +10,8 @@ def assert_unescape(inp, exp):
 
 class TestUnEscape(unittest.TestCase):
 
-    def test_no_unescape(self):
-        for inp in ['no escapes', '']:
+    def test_no_backslash(self):
+        for inp in ['no escapes', '', 42]:
             assert_unescape(inp, inp)
 
     def test_single_backslash(self):
@@ -21,8 +20,8 @@ class TestUnEscape(unittest.TestCase):
                          ('\\ ', ' '),
                          ('a\\', 'a'),
                          ('\\a', 'a'),
-                         ('\\-', u'-'),
-                         (u'\\\xe4', u'\xe4'),
+                         ('\\-', '-'),
+                         ('\\ä', 'ä'),
                          ('\\0', '0'),
                          ('a\\b\\c\\d', 'abcd')]:
             assert_unescape(inp, exp)
@@ -41,15 +40,15 @@ class TestUnEscape(unittest.TestCase):
         for inp, exp in [('\\n', '\n'),
                          ('\\\\n', '\\n'),
                          ('\\\\\\n', '\\\n'),
-                         ('\\n ', '\n'),
+                         ('\\n ', '\n '),
                          ('\\\\n ', '\\n '),
-                         ('\\\\\\n ', '\\\n'),
+                         ('\\\\\\n ', '\\\n '),
                          ('\\nx', '\nx'),
                          ('\\\\nx', '\\nx'),
                          ('\\\\\\nx', '\\\nx'),
-                         ('\\n x', '\nx'),
+                         ('\\n x', '\n x'),
                          ('\\\\n x', '\\n x'),
-                         ('\\\\\\n x', '\\\nx')]:
+                         ('\\\\\\n x', '\\\n x')]:
             assert_unescape(inp, exp)
 
     def test_carriage_return(self):
@@ -87,9 +86,9 @@ class TestUnEscape(unittest.TestCase):
             assert_unescape(inp, inp.replace('\\', ''))
 
     def test_valid_x(self):
-        for inp, exp in [(r'\x00', u'\x00'),
-                         (r'\xab\xBA', u'\xab\xba'),
-                         (r'\xe4iti', u'\xe4iti')]:
+        for inp, exp in [(r'\x00', '\x00'),
+                         (r'\xab\xBA', '\xab\xba'),
+                         (r'\xe4iti', 'äiti')]:
             assert_unescape(inp, exp)
 
     def test_invalid_u(self):
@@ -105,9 +104,9 @@ class TestUnEscape(unittest.TestCase):
             assert_unescape(inp, inp.replace('\\', ''))
 
     def test_valid_u(self):
-        for inp, exp in [(r'\u0000', u'\x00'),
-                         (r'\uABba', u'\uabba'),
-                         (r'\u00e4iti', u'\xe4iti')]:
+        for inp, exp in [(r'\u0000', '\x00'),
+                         (r'\uABba', '\uabba'),
+                         (r'\u00e4iti', 'äiti')]:
             assert_unescape(inp, exp)
 
     def test_invalid_U(self):
@@ -123,11 +122,11 @@ class TestUnEscape(unittest.TestCase):
             assert_unescape(inp, inp.replace('\\', ''))
 
     def test_valid_U(self):
-        for inp, exp in [(r'\U00000000', u'\x00'),
-                         (r'\U0000ABba', u'\uabba'),
-                         (r'\U0001f3e9', u'\U0001f3e9'),
-                         (r'\U0010FFFF', u'\U0010ffff'),
-                         (r'\U000000e4iti', u'\xe4iti')]:
+        for inp, exp in [(r'\U00000000', '\x00'),
+                         (r'\U0000ABba', '\uabba'),
+                         (r'\U0001f3e9', '\U0001f3e9'),
+                         (r'\U0010FFFF', '\U0010ffff'),
+                         (r'\U000000e4iti', 'äiti')]:
             assert_unescape(inp, exp)
 
     def test_U_above_valid_range(self):
@@ -158,7 +157,7 @@ class TestEscape(unittest.TestCase):
             assert_equal(escape(inp), exp, inp)
 
     def test_escape_control_words(self):
-        for inp in ['ELSE', 'ELSE IF', 'AND']:
+        for inp in ['ELSE', 'ELSE IF', 'AND', 'WITH NAME', 'AS']:
             assert_equal(escape(inp), '\\' + inp)
             assert_equal(escape(inp.lower()), inp.lower())
             assert_equal(escape('other' + inp), 'other' + inp)
@@ -169,19 +168,32 @@ class TestSplitFromEquals(unittest.TestCase):
 
     def test_basics(self):
         for inp in 'foo=bar', '=', 'split=from=first', '===':
-            self._test(inp, inp.split('=', 1))
+            self._test(inp, *inp.split('=', 1))
 
     def test_escaped(self):
-        self._test(r'a\=b=c', (r'a\=b', 'c'))
-        self._test(r'\=====', (r'\=', '==='))
-        self._test(r'\=\\\=\\=', (r'\=\\\=\\', ''))
+        self._test(r'a\=b=c', r'a\=b', 'c')
+        self._test(r'\=====', r'\=', '===')
+        self._test(r'\=\\\=\\=', r'\=\\\=\\', '')
 
     def test_no_unescaped_equal(self):
         for inp in '', 'xxx', r'\=', r'\\\=', r'\\\\\=\\\\\\\=\\\\\\\\\=':
-            self._test(inp, (inp, None))
+            self._test(inp, inp, None)
 
-    def _test(self, inp, exp):
-        assert_equal(split_from_equals(inp), tuple(exp))
+    def test_no_split_in_variable(self):
+        self._test(r'${a=b}', '${a=b}', None)
+        self._test(r'=${a=b}', '', '${a=b}')
+        self._test(r'${a=b}=', '${a=b}', '')
+        self._test(r'\=${a=b}', r'\=${a=b}', None)
+        self._test(r'${a=b}=${c=d}', '${a=b}', '${c=d}')
+        self._test(r'${a=b}\=${c=d}', r'${a=b}\=${c=d}', None)
+        self._test(r'${a=b}${c=d}${e=f}\=${g=h}=${i=j}',
+                   r'${a=b}${c=d}${e=f}\=${g=h}', '${i=j}')
+
+    def test_broken_variable(self):
+        self._test('${foo=bar', '${foo', 'bar')
+
+    def _test(self, inp, *exp):
+        assert_equal(split_from_equals(inp), exp)
 
 
 if __name__ == '__main__':

@@ -1,5 +1,6 @@
 import sys
 
+from datetime import datetime    # Needed by `eval()`.
 from xmlrpc.client import Binary
 
 from remoteserver import RemoteServer, keyword
@@ -15,8 +16,13 @@ class TypedRemoteServer(RemoteServer):
         kw = getattr(self.library, name)
         return getattr(kw, 'robot_types', None)
 
+    def get_keyword_arguments(self, name):
+        if name == 'defaults_as_tuples':
+            return [('first', 'eka'), ('second', 2)]
+        return RemoteServer.get_keyword_arguments(self, name)
 
-class Arguments(object):
+
+class Arguments:
 
     def argument_should_be(self, argument, expected, binary=False):
         if binary:
@@ -69,6 +75,10 @@ class Arguments(object):
 
     def required_defaults_and_varargs(self, req, default='world', *varargs):
         return self._format_args(req, default, *varargs)
+
+    # Handled separately by get_keyword_arguments above.
+    def defaults_as_tuples(self, first='eka', second=2):
+        return self._format_args(first, second)
 
     def kwargs(self, **kwargs):
         return self._format_args(**kwargs)

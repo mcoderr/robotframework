@@ -13,6 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from pathlib import Path
+
 from robot.errors import DataError
 from robot.model import Statistics
 
@@ -20,7 +22,29 @@ from .executionerrors import ExecutionErrors
 from .model import TestSuite
 
 
-class Result(object):
+def is_json_source(source):
+    if isinstance(source, bytes):
+        # Latin-1 is most likely not the right encoding, but decoding bytes with it
+        # always succeeds and characters we care about will be correct as well.
+        source = source.decode('Latin-1')
+    if isinstance(source, str):
+        source = source.strip()
+        first, last = (source[0], source[-1]) if source else ('', '')
+        if (first, last) == ('{', '}'):
+            return True
+        if (first, last) == ('<', '>'):
+            return False
+        path = Path(source)
+    elif isinstance(source, Path):
+        path = source
+    elif hasattr(source, 'name') and isinstance(source.name, str):
+        path = Path(source.name)
+    else:
+        return False
+    return bool(path and path.suffix.lower() == '.json')
+
+
+class Result:
     """Test execution results.
 
     Can be created based on XML output files using the
@@ -63,9 +87,9 @@ class Result(object):
             result.configure(stat_config={'suite_stat_level': 2,
                                           'tag_stat_combine': 'tagANDanother'})
             stats = result.statistics
-            print stats.total.critical.failed
-            print stats.total.critical.passed
-            print stats.tags.combined[0].total
+            print(stats.total.failed)
+            print(stats.total.passed)
+            print(stats.tags.combined[0].total)
         """
         return Statistics(self.suite, rpa=self.rpa, **self._stat_config)
 
@@ -73,11 +97,11 @@ class Result(object):
     def return_code(self):
         """Return code (integer) of test execution.
 
-        By default returns the number of failed critical tests (max 250),
+        By default returns the number of failed tests (max 250),
         but can be :func:`configured <configure>` to always return 0.
         """
         if self._status_rc:
-            return min(self.suite.statistics.critical.failed, 250)
+            return min(self.suite.statistics.failed, 250)
         return 0
 
     def configure(self, status_rc=True, suite_config=None, stat_config=None):
@@ -96,14 +120,38 @@ class Result(object):
         self._status_rc = status_rc
         self._stat_config = stat_config or {}
 
-    def save(self, path=None):
-        """Save results as a new output XML file.
+    def save(self, target=None, legacy_output=False):
+        """Save results as XML or JSON file.
 
-        :param path: Path to save results to. If omitted, overwrites the
-            original file.
+        :param target: Target where to save results to. Can be a path
+            (``pathlib.Path`` or ``str``) or an open file object. If omitted,
+            uses the :attr:`source` which overwrites the original file.
+        :param legacy_output: Save result in Robot Framework 6.x compatible
+            format. New in Robot Framework 7.0.
+
+        File type is got based on the ``target``. The type is JSON if the ``target``
+        is a path that has a ``.json`` suffix or if it is an open file that has
+        a ``name`` attribute with a ``.json`` suffix. Otherwise, the type is XML.
+
+        Notice that saved JSON files only contain suite information, no statics
+        or errors like XML files. This is likely to change in the future so
+        that JSON files get a new root object with the current suite as a child
+        and statics and errors as additional children. Robot Framework's own
+        functions and methods accepting JSON results will continue to work
+        also with JSON files containing only a suite.
         """
-        from robot.reporting.outputwriter import OutputWriter
-        self.visit(OutputWriter(path or self.source, rpa=self.rpa))
+        from robot.reporting.outputwriter import LegacyOutputWriter, OutputWriter
+
+        target = target or self.source
+        if not target:
+            raise ValueError('Path required.')
+        if is_json_source(target):
+            # This writes only suite information, not stats or errors. This
+            # should be changed when we add JSON support to execution.
+            self.suite.to_json(target)
+        else:
+            writer = OutputWriter if not legacy_output else LegacyOutputWriter
+            self.visit(writer(target, rpa=self.rpa))
 
     def visit(self, visitor):
         """An entry point to visit the whole result object.
@@ -142,7 +190,7 @@ class CombinedResult(Result):
     """Combined results of multiple test executions."""
 
     def __init__(self, results=None):
-        Result.__init__(self)
+        super().__init__()
         for result in results or ():
             self.add_result(result)
 

@@ -2,38 +2,46 @@
 Documentation       Tests for xunit-compatible xml-output.
 Resource            atest_resource.robot
 Variables           unicode_vars.py
-Suite Setup         Run Tests    -x xunit.xml -l log.html    ${TESTDATA}
+Suite Setup         Run Tests    -x xunit.xml -l log.html --skiponfailure täg    ${TESTDATA}
 
 *** Variables ***
 ${TESTDATA}         misc/non_ascii.robot
 ${PASS AND FAIL}    misc/pass_and_fail.robot
 ${INVALID}          %{TEMPDIR}${/}ïnvälïd-xünït.xml
+${NESTED}           misc/suites
+${METADATA SUITE}   parsing/suite_metadata.robot
+${NORMAL SUITE}     misc/normal.robot
 
 *** Test Cases ***
 XUnit File Is Created
-    Stderr should be empty
-    Check Stdout Contains    XUnit:
-    File Should Exist    ${OUTDIR}/xunit.xml
-    File Should Exist    ${OUTDIR}/log.html
+    Verify Outputs
 
 File Structure Is Correct
-    ${root} =    Get XUnit Node
-    Should Be Equal    ${root.tag}    testsuite
-    Suite Stats Should Be    ${root}    8    4    0
+    ${root} =    Get Root Node
+    Suite Stats Should Be    ${root}    8    3    1    ${SUITE.start_time}
     ${tests} =    Get XUnit Nodes    testcase
     Length Should Be    ${tests}    8
-    ${failures} =    Get XUnit Nodes    testcase/failure
-    Length Should Be    ${failures}    4
+    ${fails} =    Get XUnit Nodes    testcase/failure
+    Length Should Be    ${fails}    3
+    Element Attribute Should Be    ${fails}[0]    message
+    ...    Setup failed:\n${MESSAGES}
+    Element Attribute Should Be    ${fails}[0]    type    AssertionError
+    ${skips} =    Get XUnit Nodes    testcase/skipped
+    Length Should Be    ${skips}    1
+    Element Attribute Should Be    ${skips}[0]    message
+    ...    Test failed but skip-on-failure mode was active and it was marked skipped.\n\nOriginal failure:\n${MESSAGES}
+    Element Attribute Should Be    ${skips}[0]    type    SkipExecution
+    Element Should Not Exist    ${root}    testsuite/properties
 
 Non-ASCII Content
     ${tests} =    Get XUnit Nodes    testcase
-    Should Be Equal    ${tests[-1].attrib['name']}    Ñöñ-ÄŚÇÏÏ Tëśt äņd Këywörd Nämës, Спасибо
+    Element Attribute Should Be    ${tests}[-1]    name    Ñöñ-ÄŚÇÏÏ Tëśt äņd Këywörd Nämës, Спасибо
     ${failures} =    Get XUnit Nodes    testcase/failure
-    Should Be Equal    ${failures[0].attrib['message']}    ${MESSAGES}
+    Element Attribute Should Be    ${failures}[0]    message    Setup failed:\n${MESSAGES}
 
 Multiline failure
     ${failures} =    Get XUnit Nodes    testcase/failure
-    Should Be Equal    ${failures[-1].attrib['message']}    Just ASCII here\n\nAlso teardown failed:\n${MESSAGES}
+    Element Attribute Should Be    ${failures}[-1]    message    Just ASCII here\n\nAlso teardown failed:\n${MESSAGES}
 
 Suite has execution time
     ${suite} =    Get XUnit Node
@@ -47,7 +55,7 @@ Test has execution time
 
 No XUnit Option Given
     Run Tests    ${EMPTY}    ${TESTDATA}
-    Check Stdout Does Not Contain    XUnit
+    Stdout Should Not Contain    XUnit
 
 Invalid XUnit File
     Create Directory    ${INVALID}
@@ -56,40 +64,107 @@ Invalid XUnit File
     File Should Exist    ${OUTDIR}/log.html
     ${dir}    ${base} =    Split Path  ${INVALID}
     ${path} =    Regexp Escape    ${INVALID}
-    Check Stderr Matches Regexp
-    ...    \\[ ERROR \\] Writing xunit file '${path}' failed: .*
+    Stderr Should Match Regexp
+    ...    \\[ ERROR \\] Opening xunit file '${path}' failed: .*
 
-Skipping non-critical tests
-    Run tests    --xUnit xunit.xml --xUnitSkipNonCritical --NonCritical fail    ${PASS AND FAIL}
-    ${root} =    Get XUnit Node  .
-    Suite Stats Should Be    ${root}    2    0    1
-    ${skipped} =  Get XUnit Node  testcase/skipped
-    Should be equal    ${skipped.text}    FAIL: Expected failure
+XUnit File From Nested Suites
+    Run Tests    -x xunit.xml -l log.html    ${TESTDATA} ${NESTED}
+    Verify Outputs
+    ${root} =    Get Root Node
+    ${suites} =    Get Elements    ${root}    testsuite
+    Length Should Be    ${suites}    2
+    ${tests} =    Get Elements    ${suites}[0]    testcase
+    Length Should Be    ${tests}    8
+    Element Attribute Should be    ${tests}[7]    name    Ñöñ-ÄŚÇÏÏ Tëśt äņd Këywörd Nämës, Спасибо
+    ${failures} =    Get Elements    ${suites}[0]    testcase/failure
+    Length Should Be    ${failures}    4
+    Element Attribute Should be    ${failures}[0]    message    ${MESSAGES}
+    ${nested suite} =    Get Element    ${OUTDIR}/xunit.xml    xpath=testsuite[2]
+    Element Attribute Should Be       ${nested suite}    tests       13
+    Element Attribute Should Be       ${nested suite}    failures    1
+    ${properties} =    Get Elements    ${nested suite}    testsuite[6]/properties/property
+    Length Should Be    ${properties}    2
+    Element Attribute Should be    ${properties}[0]    name     Documentation
+    Element Attribute Should be    ${properties}[0]    value    Normal test cases
+    Element Attribute Should be    ${properties}[1]    name     Something
+    Element Attribute Should be    ${properties}[1]    value    My Value
 
-Skipping all tests
-    Run tests    --xunit xunit.xml --noncritical force --xunitskip    ${PASS AND FAIL}
-    ${root} =    Get XUnit Node    .
-    Suite Stats Should Be    ${root}    2    0    2
-    ${skipped} =    Get XUnit Nodes    testcase/skipped
-    Should be equal    ${skipped[0].text}    PASS
-    Should be equal    ${skipped[1].text}    FAIL: Expected failure
-    Length Should Be    ${skipped}    2
+XUnit File Root Testsuite Properties From CLI
+    Run Tests    -M METACLI:"meta CLI" -x xunit.xml -l log.html -v META_VALUE_FROM_CLI:"cli meta"    ${NORMAL SUITE} ${METADATA SUITE}
+    Verify Outputs
+    ${root} =    Get Root Node
+    ${root_properties_element} =    Get Properties Node    ${root}
+    ${property_elements} =    Get Elements    ${root_properties_element}[0]    property
+    Length Should Be    ${property_elements}    1
+    Element Attribute Should be    ${property_elements}[0]    name     METACLI
+    Element Attribute Should be    ${property_elements}[0]    value    meta CLI
+
+XUnit File Testsuite Properties From Suite Documentation
+    ${root} =    Get Root Node
+    ${suites} =    Get Elements    ${root}    testsuite
+    Length Should Be    ${suites}    2
+    ${normal_properties_element} =    Get Properties Node    ${suites}[0]
+    ${property_elements} =    Get Elements    ${normal_properties_element}[0]    property
+    Length Should Be    ${property_elements}    2
+    Element Attribute Should be    ${property_elements}[0]    name     Documentation
+    Element Attribute Should be    ${property_elements}[0]    value    Normal test cases
+
+XUnit File Testsuite Properties From Metadata
+    ${root} =    Get Root Node
+    ${suites} =    Get Elements    ${root}    testsuite
+    ${meta_properties_element} =    Get Properties Node    ${suites}[1]
+    ${property_elements} =    Get Elements    ${meta_properties_element}[0]    property
+    Length Should Be    ${property_elements}    8
+    Element Attribute Should be    ${property_elements}[0]    name     Escaping
+    Element Attribute Should be    ${property_elements}[0]    value    Three backslashes \\\\\\\ & \${version}
+    Element Attribute Should be    ${property_elements}[1]    name     Multiple columns
+    Element Attribute Should be    ${property_elements}[1]    value    Value in${SPACE*4}multiple${SPACE*4}columns
+    Element Attribute Should be    ${property_elements}[2]    name     multiple lines
+    Element Attribute Should be    ${property_elements}[2]    value    Metadata in multiple lines\nis parsed using\nsame semantics${SPACE*4}as${SPACE*4}documentation.\n| table |\n|${SPACE*3}!${SPACE*3}|
+    Element Attribute Should be    ${property_elements}[3]    name     Name
+    Element Attribute Should be    ${property_elements}[3]    value    Value
+    Element Attribute Should be    ${property_elements}[4]    name     Overridden
+    Element Attribute Should be    ${property_elements}[4]    value    This overrides first value
+    Element Attribute Should be    ${property_elements}[5]    name     Value from CLI
+    Element Attribute Should be    ${property_elements}[5]    value    cli meta
+    Element Attribute Should be    ${property_elements}[6]    name     Variable from resource
+    Element Attribute Should be    ${property_elements}[6]    value    Variable from a resource file
+    Element Attribute Should be    ${property_elements}[7]    name     variables
+    Element Attribute Should be    ${property_elements}[7]    value    Version: 1.2
 
 *** Keywords ***
 Get XUnit Node
     [Arguments]    ${xpath}=.
     ${node} =    Get Element    ${OUTDIR}/xunit.xml    ${xpath}
-    [Return]    ${node}
+    RETURN    ${node}
 
 Get XUnit Nodes
     [Arguments]    ${xpath}
     ${nodes} =    Get Elements    ${OUTDIR}/xunit.xml    ${xpath}
-    [Return]    ${nodes}
+    RETURN    ${nodes}
 
 Suite Stats Should Be
-    [Arguments]    ${elem}    ${tests}    ${failures}    ${skipped}
+    [Arguments]    ${elem}    ${tests}    ${failures}    ${skipped}    ${start_time}
     Element Attribute Should Be       ${elem}    tests       ${tests}
     Element Attribute Should Be       ${elem}    failures    ${failures}
     Element Attribute Should Be       ${elem}    skipped     ${skipped}
     Element Attribute Should Match    ${elem}    time        ?.???
     Element Attribute Should Be       ${elem}    errors      0
+    Element Attribute Should Be       ${elem}    timestamp   ${start_time.isoformat()}
+
+Verify Outputs
+    Stderr should be empty
+    Stdout Should Contain    XUnit:
+    File Should Exist    ${OUTDIR}/xunit.xml
+    File Should Exist    ${OUTDIR}/log.html
+
+Get Root Node
+    ${root} =    Get XUnit Node
+    Should Be Equal    ${root.tag}    testsuite
+    RETURN    ${root}
+
+Get Properties Node
+    [Arguments]    ${source}
+    ${properties} =    Get Elements    ${source}    properties
+    Length Should Be    ${properties}    1
+    RETURN    ${properties}

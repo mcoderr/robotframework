@@ -15,19 +15,13 @@
 
 import re
 
-from .platform import PY3
-from .robottypes import is_string
 
-
-if PY3:
-    unichr = chr
-
-_CONTROL_WORDS = frozenset(('ELSE', 'ELSE IF', 'AND', 'WITH NAME'))
+_CONTROL_WORDS = frozenset(('ELSE', 'ELSE IF', 'AND', 'WITH NAME', 'AS'))
 _SEQUENCES_TO_BE_ESCAPED = ('\\', '${', '@{', '%{', '&{', '*{', '=')
 
 
 def escape(item):
-    if not is_string(item):
+    if not isinstance(item, str):
         return item
     if item in _CONTROL_WORDS:
         return '\\' + item
@@ -37,108 +31,101 @@ def escape(item):
     return item
 
 
-def unescape(item):
-    if not (is_string(item) and '\\' in item):
-        return item
-    return Unescaper().unescape(item)
+def glob_escape(item):
+    # Python 3.4+ has `glob.escape()` but it has special handling for drives
+    # that we don't want.
+    for char in '[*?':
+        if char in item:
+            item = item.replace(char, '[%s]' % char)
+    return item
 
 
-class Unescaper(object):
+class Unescaper:
+    _escape_sequences = re.compile(r'''
+        (\\+)                # escapes
+        (n|r|t            # n, r, or t
+         |x[0-9a-fA-F]{2}    # x+HH
+         |u[0-9a-fA-F]{4}    # u+HHHH
+         |U[0-9a-fA-F]{8}    # U+HHHHHHHH
+        )?                   # optionally
+    ''', re.VERBOSE)
 
-    def unescape(self, string):
-        return ''.join(self._yield_unescaped(string))
+    def __init__(self):
+        self._escape_handlers = {
+            '': lambda value: value,
+            'n': lambda value: '\n',
+            'r': lambda value: '\r',
+            't': lambda value: '\t',
+            'x': self._hex_to_unichr,
+            'u': self._hex_to_unichr,
+            'U': self._hex_to_unichr
+        }
 
-    def _yield_unescaped(self, string):
-        while '\\' in string:
-            finder = EscapeFinder(string)
-            yield finder.before + finder.backslashes
-            if finder.escaped and finder.text:
-                yield self._unescape(finder.text)
-            else:
-                yield finder.text
-            string = finder.after
-        yield string
-
-    def _unescape(self, text):
-        try:
-            escape = str(text[0])
-        except UnicodeError:
-            return text
-        try:
-            unescaper = getattr(self, '_unescaper_for_' + escape)
-        except AttributeError:
-            return text
-        else:
-            return unescaper(text[1:])
-
-    def _unescaper_for_n(self, text):
-        if text.startswith(' '):
-            text = text[1:]
-        return '\n' + text
-
-    def _unescaper_for_r(self, text):
-        return '\r' + text
-
-    def _unescaper_for_t(self, text):
-        return '\t' + text
-
-    def _unescaper_for_x(self, text):
-        return self._unescape_character(text, 2, 'x')
-
-    def _unescaper_for_u(self, text):
-        return self._unescape_character(text, 4, 'u')
-
-    def _unescaper_for_U(self, text):
-        return self._unescape_character(text, 8, 'U')
-
-    def _unescape_character(self, text, length, escape):
-        try:
-            char = self._get_character(text[:length], length)
-        except ValueError:
-            return escape + text
-        else:
-            return char + text[length:]
-
-    def _get_character(self, text, length):
-        if len(text) < length or not text.isalnum():
-            raise ValueError
-        ordinal = int(text, 16)
+    def _hex_to_unichr(self, value):
+        ordinal = int(value, 16)
         # No Unicode code points above 0x10FFFF
         if ordinal > 0x10FFFF:
-            raise ValueError
-        # unichr only supports ordinals up to 0xFFFF with narrow Python builds
+            return 'U' + value
+        # `chr` only supports ordinals up to 0xFFFF on narrow Python builds.
+        # This may not be relevant anymore.
         if ordinal > 0xFFFF:
-            return eval("u'\\U%08x'" % ordinal)
-        return unichr(ordinal)
+            return eval(r"'\U%08x'" % ordinal)
+        return chr(ordinal)
+
+    def unescape(self, item):
+        if not isinstance(item, str) or '\\' not in item:
+            return item
+        return self._escape_sequences.sub(self._handle_escapes, item)
+
+    def _handle_escapes(self, match):
+        escapes, text = match.groups()
+        half, is_escaped = divmod(len(escapes), 2)
+        escapes = escapes[:half]
+        text = text or ''
+        if is_escaped:
+            marker, value = text[:1], text[1:]
+            text = self._escape_handlers[marker](value)
+        return escapes + text
 
 
-class EscapeFinder(object):
-    _escaped = re.compile(r'(\\+)([^\\]*)')
-
-    def __init__(self, string):
-        res = self._escaped.search(string)
-        self.before = string[:res.start()]
-        escape_chars = len(res.group(1))
-        self.backslashes = '\\' * (escape_chars // 2)
-        self.escaped = bool(escape_chars % 2)
-        self.text = res.group(2)
-        self.after = string[res.end():]
+unescape = Unescaper().unescape
 
 
-def split_from_equals(string):
-    index = _get_split_index(string)
-    if index == -1:
-        return string, None
-    return string[:index], string[index+1:]
+def split_from_equals(value):
+    from robot.variables import VariableMatches
+    if not isinstance(value, str) or '=' not in value:
+        return value, None
+    matches = VariableMatches(value, ignore_errors=True)
+    if not matches and '\\' not in value:
+        return tuple(value.split('=', 1))
+    try:
+        index = _find_split_index(value, matches)
+    except ValueError:
+        return value, None
+    return value[:index], value[index + 1:]
 
-def _get_split_index(string):
+
+def _find_split_index(string, matches):
+    remaining = string
+    relative_index = 0
+    for match in matches:
+        try:
+            return _find_split_index_from_part(match.before) + relative_index
+        except ValueError:
+            remaining = match.after
+            relative_index += match.end
+    return _find_split_index_from_part(remaining) + relative_index
+
+
+def _find_split_index_from_part(string):
     index = 0
     while '=' in string[index:]:
         index += string[index:].index('=')
         if _not_escaping(string[:index]):
             return index
         index += 1
-    return -1
+    raise ValueError
+
 
 def _not_escaping(name):
     backslashes = len(name) - len(name.rstrip('\\'))

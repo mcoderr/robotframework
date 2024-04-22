@@ -1,4 +1,4 @@
-*** Setting ***
+*** Settings ***
 Suite Setup       Log    Setup of test case file
 Suite Teardown    Log    Teardown of test case file
 Test Setup        Log    Default setup from test file
@@ -7,7 +7,7 @@ Force Tags        test force    suite force    # dublicate should be ignored
 Default Tags      test default
 Test Timeout      1 hour 2 minutes 3 seconds
 
-*** Test Case ***
+*** Test Cases ***
 TC1 No metadata
     No Operation
 
@@ -21,6 +21,6 @@ TC1 Fixture
     [Teardown]    Log    Teardown defined in test
 
 TC1 Timeout
-    [Documentation]    FAIL Test timeout 1 second exceeded.
-    [Timeout]    1 s
-    Sleep    1.1
+    [Documentation]    FAIL Test timeout 100 milliseconds exceeded.
+    [Timeout]    0.1s
+    Sleep    1s

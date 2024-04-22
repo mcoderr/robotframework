@@ -1,61 +1,37 @@
 *** Settings ***
-Test Timeout      500 milliseconds    My customized ${DEFAULT END}
-
-*** Variables ***
-${DEFAULT END}    default test timeout
-${MESSAGE}        message from variable
+Test Timeout      500 milliseconds    Not supported anymore
 
 *** Test Cases ***
 Default Test Timeout Message
-    [Documentation]    FAIL My customized default test timeout
-    Sleep    10
+    No operation
 
 Test Timeout Message
-    [Documentation]    FAIL My test timeout message
+    [Documentation]    FAIL Setting 'Timeout' accepts only one value, got 2.
     [Timeout]    100 milliseconds    My test timeout message
-    Sleep    10
+    No operation
 
 Test Timeout Message In Multiple Columns
-    [Documentation]    FAIL My test timeout message in multiple columns
+    [Documentation]    FAIL Setting 'Timeout' accepts only one value, got 7.
     [Timeout]    1 millisecond    My    test     timeout     message
     ...    in
     ...    multiple columns
-    Sleep    10
-
-Test Timeout Message With Variables
-    [Documentation]    FAIL Test ${MESSAGE}
-    [Timeout]    200 milliseconds    Test ${MESSAGE}
-    Sleep    10
+    No operation
 
 Keyword Timeout Message
-    [Documentation]    FAIL My keyword timeout message
-    [Timeout]
-    Keyword Timeout Message    0.1
-    Keyword Timeout Message    10
+    [Documentation]    FAIL Setting 'Timeout' accepts only one value, got 2.
+    Keyword Timeout Message
 
 Keyword Timeout Message In Multiple Columns
-    [Documentation]    FAIL My keyword timeout message in multiple columns
-    [Timeout]
-    Keyword Timeout Message In Multiple Columns    10
-
-Keyword Timeout Message With Variables
-    [Documentation]    FAIL Keyword ${MESSAGE}
-    [Timeout]
-    Keyword Timeout Message With Variables
+    [Documentation]    FAIL Setting 'Timeout' accepts only one value, got 7.
+    Keyword Timeout Message In Multiple Columns
 
 *** Keywords ***
 Keyword Timeout Message
-    [Arguments]    ${secs}
     [Timeout]    1 second    My keyword timeout message
-    Sleep    ${secs}
+    No operation
 
 Keyword Timeout Message In Multiple Columns
-    [Arguments]    ${secs}
     [Timeout]    111 milliseconds    My    keyword     timeout    message
     ...    in
     ...    multiple columns
-    Sleep    ${secs}
-
-Keyword Timeout Message With Variables
-    [Timeout]    ${0.1} sec    Keyword ${MESSAGE}
-    Sleep    5 sec
+    No operation

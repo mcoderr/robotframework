@@ -178,6 +178,15 @@ Moving From Name With Glob
     Move Files    ${SOURCE GLOB}/${GLOB FILE}    ${DEST}
     Directory Should Have Items    ${DEST}    ${GLOB FILE}
 
+Path as `pathlib.Path`
+    Move Files    ${{pathlib.Path($SOURCE)/'movecopy-*.txt'}}    ${{pathlib.Path($DEST)}}
+    Directory Should Have Items    ${DEST}    movecopy-one.txt
+    Remove Values From List    ${SOURCE FILES}    movecopy-one.txt
+    Directory Should Have Items    ${SOURCE}    @{SOURCE FILES}
+    Copy Files    ${{pathlib.Path($DEST)/'*.txt'}}    ${{pathlib.Path($DEST)/'new'}}
+    Directory Should Have Items    ${DEST}/new    movecopy-one.txt
+    Directory Should Have Items    ${DEST}    movecopy-one.txt    new
+
 *** Keywords ***
 Create Test Files For Multi-file Operations
     Create Directory    ${SOURCE}
@@ -211,10 +220,13 @@ Create Test Files For Multi-file Operations
     ...    movecopy_multi_dir-3.txt
     ...    movecopy_multi_dir-4.txt
     # All the files possibly used in the test are created
-    : FOR    ${file}    IN    @{SOURCE FILES}
-    \    Create File    ${SOURCE}/${file}
-    : FOR    ${file}    IN    @{SOURCE FILES 2}
-    \    Create File    ${SOURCE2}/${file}
-    : FOR    ${file}    IN    @{SOURCE FILES 3}
-    \    Create File    ${SOURCE3}/${file}
+    FOR    ${file}    IN    @{SOURCE FILES}
+        Create File    ${SOURCE}/${file}
+    END
+    FOR    ${file}    IN    @{SOURCE FILES 2}
+        Create File    ${SOURCE2}/${file}
+    END
+    FOR    ${file}    IN    @{SOURCE FILES 3}
+        Create File    ${SOURCE3}/${file}
+    END
     Create File    ${SOURCE GLOB}/${GLOB FILE}

@@ -6,7 +6,7 @@ from robot.utils.asserts import assert_equal, assert_true
 from robot.api import logger
 
 
-class MyStream(object):
+class MyStream:
 
     def __init__(self):
         self.flushed = False
@@ -77,14 +77,17 @@ class TestRedirectToPythonLogging(unittest.TestCase):
         logger.debug("Boo")
         logger.trace("Goo")
         logger.write("Doo", 'INFO')
-        self.assertEquals(self.handler.messages, ['Foo', 'Boo', 'Goo', 'Doo'])
+        assert_equal(self.handler.messages, ['Foo', 'Boo', 'Goo', 'Doo'])
 
     def test_logger_to_python_with_html(self):
         logger.info("Foo", html=True)
         logger.write("Doo", 'INFO', html=True)
         logger.write("Joo", 'HTML')
-        self.assertEquals(self.handler.messages, ['Foo', 'Doo', 'Joo'])
+        assert_equal(self.handler.messages, ['Foo', 'Doo', 'Joo'])
 
+    def test_logger_to_python_with_console(self):
+        logger.write("Foo", 'CONSOLE')
+        assert_equal(self.handler.messages, ['Foo'])
 
 if __name__ == '__main__':
     unittest.main()

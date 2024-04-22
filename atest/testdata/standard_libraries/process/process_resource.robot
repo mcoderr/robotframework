@@ -2,7 +2,6 @@
 Library           Process
 Library           Collections
 Library           OperatingSystem
-Library           PlatformLib.py
 
 *** Variables ***
 ${SCRIPT}         ${CURDIR}${/}files${/}script.py
@@ -12,6 +11,7 @@ ${TEMPFILE}       %{TEMPDIR}${/}terminate-process-temp.txt
 ${STARTED}        %{TEMPDIR}${/}some-process-started.txt
 ${STDOUT}         %{TEMPDIR}/process-stdout-file.txt
 ${STDERR}         %{TEMPDIR}/process-stderr-file.txt
+${STDIN}          %{TEMPDIR}/process-stdin-file.txt
 ${CWD}            %{TEMPDIR}/process-cwd
 
 *** Keywords ***
@@ -19,10 +19,10 @@ Some process
     [Arguments]    ${alias}=${null}    ${stderr}=STDOUT
     Remove File    ${STARTED}
     ${handle}=    Start Python Process    open(r'${STARTED}', 'w').close(); print(input())
-    ...    alias=${alias}    stderr=${stderr}
+    ...    alias=${alias}    stderr=${stderr}    stdin=PIPE
     Wait Until Created    ${STARTED}    timeout=10s
     Process Should Be Running
-    [Return]    ${handle}
+    RETURN    ${handle}
 
 Stop some process
     [Arguments]    ${handle}=${NONE}    ${message}=
@@ -30,7 +30,7 @@ Stop some process
     Return From Keyword If    not $running
     ${process}=    Get Process Object    ${handle}
     ${stdout}    ${_} =    Call Method    ${process}    communicate    ${message.encode('ASCII') + b'\n'}
-    [Return]    ${stdout.decode('ASCII').rstrip()}
+    RETURN    ${stdout.decode('ASCII').rstrip()}
 
 Result should equal
     [Arguments]    ${result}    ${stdout}=    ${stderr}=    ${rc}=0
@@ -57,7 +57,7 @@ Custom stream should contain
     ${path} =    Normalize Path    ${path}
     ${content} =    Get File    ${path}    encoding=CONSOLE
     Should Be Equal    ${content.rstrip()}    ${expected}
-    [Return]    ${path}
+    RETURN    ${path}
 
 Script result should equal
     [Documentation]    These are default results by ${SCRIPT}
@@ -65,20 +65,19 @@ Script result should equal
     Result should equal    ${result}    ${stdout}    ${stderr}    ${rc}
 
 Start Python Process
-    [Arguments]    ${command}    ${alias}=${NONE}    ${stdout}=${NONE}    ${stderr}=${NONE}    ${shell}=False
+    [Arguments]    ${command}    ${alias}=${NONE}    ${stdout}=${NONE}    ${stderr}=${NONE}    ${stdin}=None    ${shell}=False
     ${handle}=    Start Process    python    -c    ${command}
-    ...    alias=${alias}    stdout=${stdout}    stderr=${stderr}    shell=${shell}
-    [Return]    ${handle}
+    ...    alias=${alias}    stdout=${stdout}    stderr=${stderr}    stdin=${stdin}    shell=${shell}
+    RETURN    ${handle}
 
 Run Python Process
     [Arguments]    ${command}    ${alias}=${NONE}    ${stdout}=${NONE}    ${stderr}=${NONE}
     ${result}=    Run Process    python    -c    ${command}
     ...    alias=${alias}    stdout=${stdout}    stderr=${stderr}
-    [Return]    ${result}
+    RETURN    ${result}
 
 Safe Remove File
     [Documentation]    Ignore errors caused by process being locked.
-    ...                That happens at least with IronPython.
     [Arguments]    @{paths}
     Run Keyword And Ignore Error    Remove Files    @{paths}
 
@@ -88,14 +87,7 @@ Safe Remove Directory
 
 Check Precondition
     [Arguments]    ${precondition}
-    ${ok} =    Evaluate    ${precondition}    modules=sys,os,signal
-    Run Keyword If    not ${ok}
-    ...    Fail    Precondition '${precondition}' was not true.    precondition-fail
-
-Precondition not OSX
-    ${platform} =     Get os platform
-    Run Keyword If    $platform in ('darwin', 'mac os x')
-    ...    Fail    Platform is OSX, where this test wont work.    precondition-fail
+    Should Be True    ${precondition}    Precondition '${precondition}' was not true.
 
 Wait until countdown started
     Wait Until Created    ${TEMPFILE}

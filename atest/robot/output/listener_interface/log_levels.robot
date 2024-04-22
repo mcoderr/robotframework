@@ -10,11 +10,11 @@ Log messages are collected on INFO level by default
     Run Tests    --listener listeners.Messages;${MESSAGE FILE}    misc/pass_and_fail.robot
     Logged messages should be
     ...    INFO: Hello says "Suite Setup"!
-    ...    INFO: \${assign} = Just testing...
+    ...    INFO: \${assign} = JUST TESTING...
     ...    INFO: Hello says "Pass"!
-    ...    INFO: \${assign} = Just testing...
+    ...    INFO: \${assign} = JUST TESTING...
     ...    INFO: Hello says "Fail"!
-    ...    INFO: \${assign} = Just testing...
+    ...    INFO: \${assign} = JUST TESTING...
     ...    FAIL: Expected failure
 
 Log messages are collected on specified level
@@ -22,16 +22,26 @@ Log messages are collected on specified level
     Logged messages should be
     ...    INFO: Hello says "Suite Setup"!
     ...    DEBUG: Debug message
-    ...    INFO: \${assign} = Just testing...
+    ...    INFO: \${assign} = JUST TESTING...
+    ...    DEBUG: Argument types are:
+    ...    <class 'str'>
+    ...    <class 'str'>
     ...    INFO: Hello says "Pass"!
     ...    DEBUG: Debug message
-    ...    INFO: \${assign} = Just testing...
+    ...    INFO: \${assign} = JUST TESTING...
+    ...    DEBUG: Argument types are:
+    ...    <class 'str'>
+    ...    <class 'str'>
     ...    INFO: Hello says "Fail"!
     ...    DEBUG: Debug message
-    ...    INFO: \${assign} = Just testing...
+    ...    INFO: \${assign} = JUST TESTING...
+    ...    DEBUG: Argument types are:
+    ...    <class 'str'>
+    ...    <class 'str'>
     ...    FAIL: Expected failure
     ...    DEBUG: Traceback (most recent call last):
     ...    ${SPACE*2}None
+    ...    AssertionError: Expected failure
 
 *** Keywords ***
 Logged messages should be

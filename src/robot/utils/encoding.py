@@ -17,87 +17,73 @@ import os
 import sys
 
 from .encodingsniffer import get_console_encoding, get_system_encoding
-from .compat import isatty
-from .platform import JYTHON, IRONPYTHON, PY3
-from .robottypes import is_unicode
-from .unic import unic
+from .misc import isatty
+from .robottypes import is_string
+from .unic import safe_str
 
 
 CONSOLE_ENCODING = get_console_encoding()
 SYSTEM_ENCODING = get_system_encoding()
-# IronPython and Jython streams have wrong encoding if outputs are redirected.
-# Jython gets it right if PYTHONIOENCODING is set, though.
-NON_TTY_ENCODING_CAN_BE_TRUSTED = \
-    not (IRONPYTHON or JYTHON and not os.getenv('PYTHONIOENCODING'))
+PYTHONIOENCODING = os.getenv('PYTHONIOENCODING')
 
 
-def console_decode(string, encoding=CONSOLE_ENCODING, force=False):
+def console_decode(string, encoding=CONSOLE_ENCODING):
     """Decodes bytes from console encoding to Unicode.
 
-    By default uses the system console encoding, but that can be configured
+    Uses the system console encoding by default, but that can be configured
     using the `encoding` argument. In addition to the normal encodings,
     it is possible to use case-insensitive values `CONSOLE` and `SYSTEM` to
     use the system console and system encoding, respectively.
 
-    By default returns Unicode strings as-is. The `force` argument can be used
-    on IronPython where all strings are `unicode` and caller knows decoding
-    is needed.
+    If `string` is already Unicode, it is returned as-is.
     """
-    if is_unicode(string) and not (IRONPYTHON and force):
+    if is_string(string):
         return string
     encoding = {'CONSOLE': CONSOLE_ENCODING,
                 'SYSTEM': SYSTEM_ENCODING}.get(encoding.upper(), encoding)
     try:
         return string.decode(encoding)
     except UnicodeError:
-        return unic(string)
+        return safe_str(string)
 
 
-def console_encode(string, errors='replace', stream=sys.__stdout__):
-    """Encodes Unicode to bytes in console or system encoding.
+def console_encode(string, encoding=None, errors='replace', stream=sys.__stdout__,
+                   force=False):
+    """Encodes the given string so that it can be used in the console.
 
-    Determines the encoding to use based on the given stream and system
-    configuration. On Python 3 and IronPython returns Unicode, otherwise
-    returns bytes.
+    If encoding is not given, determines it based on the given stream and system
+    configuration. In addition to the normal encodings, it is possible to use
+    case-insensitive values `CONSOLE` and `SYSTEM` to use the system console
+    and system encoding, respectively.
+
+    Decodes bytes back to Unicode by default, because Python 3 APIs in general
+    work with strings. Use `force=True` if that is not desired.
     """
-    encoding = _get_console_encoding(stream)
-    if PY3 and encoding != 'UTF-8':
-        return string.encode(encoding, errors).decode(encoding)
-    if PY3 or IRONPYTHON:
-        return string
-    return string.encode(encoding, errors)
+    if not is_string(string):
+        string = safe_str(string)
+    if encoding:
+        encoding = {'CONSOLE': CONSOLE_ENCODING,
+                    'SYSTEM': SYSTEM_ENCODING}.get(encoding.upper(), encoding)
+    else:
+        encoding = _get_console_encoding(stream)
+    if encoding.upper() != 'UTF-8':
+        encoded = string.encode(encoding, errors)
+        return encoded if force else encoded.decode(encoding)
+    return string.encode(encoding, errors) if force else string
 
 
 def _get_console_encoding(stream):
     encoding = getattr(stream, 'encoding', None)
-    if encoding and (NON_TTY_ENCODING_CAN_BE_TRUSTED or isatty(stream)):
-        return encoding
-    return CONSOLE_ENCODING if isatty(stream) else SYSTEM_ENCODING
+    if isatty(stream):
+        return encoding or CONSOLE_ENCODING
+    if PYTHONIOENCODING:
+        return PYTHONIOENCODING
+    return encoding or SYSTEM_ENCODING
 
 
-# These interpreters handle communication with system APIs using Unicode.
-if PY3 or JYTHON or IRONPYTHON:
+def system_decode(string):
+    return string if is_string(string) else safe_str(string)
 
-    def system_decode(string):
-        return string if is_unicode(string) else unic(string)
 
-    def system_encode(string, errors='replace'):
-        return string if is_unicode(string) else unic(string)
-
-else:
-
-    def system_decode(string):
-        """Decodes bytes from system (e.g. cli args or env vars) to Unicode."""
-        try:
-            return string.decode(SYSTEM_ENCODING)
-        except UnicodeError:
-            return unic(string)
-
-    def system_encode(string, errors='replace'):
-        """Encodes Unicode to system encoding (e.g. cli args and env vars).
-
-        Non-Unicode values are first converted to Unicode.
-        """
-        if not is_unicode(string):
-            string = unic(string)
-        return string.encode(SYSTEM_ENCODING, errors)
+def system_encode(string):
+    return string if is_string(string) else safe_str(string)

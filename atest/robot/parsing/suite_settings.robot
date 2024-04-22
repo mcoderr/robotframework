@@ -7,26 +7,34 @@ Resource          atest_resource.robot
 
 *** Test Cases ***
 Suite Name
-    Should Be Equal    ${SUITE.name}    Suite Settings
+    Should Be Equal    ${SUITE.name}    Custom name
 
 Suite Documentation
     ${doc} =    Catenate    SEPARATOR=\n
     ...    1st logical line
     ...    (i.e. paragraph)
     ...    is shortdoc on console.
-    ...    ${EMPTY}
+    ...
     ...    Documentation can have multiple rows
-    ...    and also multiple columns.
+    ...    and${SPACE*4}also${SPACE*4}multiple${SPACE*4}columns.
+    ...
     ...    Newlines can also be added literally with "\n".
-    ...    ${EMPTY}
+    ...    If a row ends with a newline
+    ...    or backslash no automatic newline is added.
+    ...
+    ...    | table | =header= |
+    ...    | foo${SPACE*3}|${SPACE*4}bar${SPACE*3}|
+    ...    | ragged |
+    ...
     ...    Variables work since Robot 1.2 and doc_from_cli works too.
     ...    Starting from RF 2.1 \${nonexisting} variables are left unchanged.
     ...    Escaping (e.g. '\${non-existing}', 'c:\\temp', '\\n') works too.
+    ...    Not \${closed
     Should Be Equal    ${SUITE.doc}    ${doc}
 
 Suite Name And Documentation On Console
-    Check Stdout Contains    Suite Settings :: 1st logical line (i.e. paragraph) is shortdoc on console.${SPACE * 3}\n
-    Check Stdout Contains    Suite Settings :: 1st logical line (i.e. paragraph) is shortdoc on... | PASS |\n
+    Stdout Should Contain    Custom name :: 1st logical line (i.e. paragraph) is shortdoc on console.${SPACE * 6}\n
+    Stdout Should Contain    Custom name :: 1st logical line (i.e. paragraph) is shortdoc on co... | PASS |\n
 
 Test Setup
     ${test} =    Check Test Case    Test Case
@@ -45,13 +53,15 @@ Suite Setup
 Suite Teardown
     Verify Teardown    ${SUITE}    BuiltIn.Log    Default suite teardown
 
-Deprecated Setting Format
-    Verify Error    0
-    ...    Setting 'For CET ag S' is deprecated. Use 'Force Tags' instead.
-    ...    level=WARN
-
 Invalid Setting
-    Verify Error    1    Non-existing setting 'Invalid Setting'.
+    Error In File    0    parsing/suite_settings.robot    32
+    ...    Non-existing setting 'Invalid Setting'.
+
+Small typo should provide recommendation.
+    Error In File    1    parsing/suite_settings.robot    33
+    ...    SEPARATOR=\n
+    ...    Non-existing setting 'Megadata'. Did you mean:
+    ...    ${SPACE*4}Metadata
 
 *** Keywords ***
 Verify Setup
@@ -64,11 +74,5 @@ Verify Teardown
 
 Verify Fixture
     [Arguments]    ${fixture}    ${expected_name}    ${expected_message}
-    Should be Equal    ${fixture.name}    ${expected_name}
+    Should be Equal    ${fixture.full_name}    ${expected_name}
     Check Log Message    ${fixture.messages[0]}    ${expected_message}
-
-Verify Error
-    [Arguments]    ${index}    @{message parts}    ${level}=ERROR
-    ${path} =    Normalize Path    ${DATADIR}/parsing/suite_settings.robot
-    ${message} =    Catenate    Error in file '${path}':    @{message parts}
-    Check Log Message    ${ERRORS}[${index}]    ${message}    ${level}

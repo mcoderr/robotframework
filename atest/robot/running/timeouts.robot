@@ -16,19 +16,14 @@ Timeouted Test Passes
 Timeouted Test Fails Before Timeout
     Check Test Case    Failing Before Timeout
 
-Show Correct Trace Back When Failing Before Timeout
-    [Tags]    no-ipy    # For some reason IronPython loses the traceback in this case.
+Show Correct Traceback When Failing Before Timeout
     ${tc} =    Check Test Case    ${TEST NAME}
     ${expected} =    Catenate    SEPARATOR=\n
     ...    Traceback (most recent call last):
     ...    ${SPACE*2}File "*", line *, in exception
     ...    ${SPACE*4}raise exception(msg)
-    Check Log Message    ${tc.kws[0].msgs[-1]}    ${expected}    pattern=yes    level=DEBUG
-
-Show Correct Trace Back When Failing In Java Before Timeout
-    [Tags]    require-jython
-    ${tc} =    Check Test Case    ${TEST NAME}
-    Should Contain    ${tc.kws[0].msgs[-1].message}    at ExampleJavaLibrary.exception(
+    ...    RuntimeError: Failure before timeout
+    Check Log Message    ${tc.kws[0].msgs[-1]}    ${expected}    DEBUG    pattern=True    traceback=True
 
 Timeouted Test Timeouts
     Check Test Case    Sleeping And Timeouting
@@ -141,12 +136,6 @@ Logging With Timeouts
     Check Log Message    ${tc.kws[0].msgs[1]}           Testing logging in timeouted test
     Check Log Message    ${tc.kws[1].kws[0].msgs[1]}    Testing logging in timeouted keyword
 
-It Should Be Possible To Print From Java Libraries When Test Timeout Has Been Set
-    [Tags]    require-jython
-    ${tc} =    Check Test Case    ${TEST NAME}
-    Timeout should have been active    ${tc.kws[0]}    1 second    2
-    Check Log message    ${tc.kws[0].msgs[1]}    My message from java lib
-
 Timeouted Keyword Called With Wrong Number of Arguments
     Check Test Case    ${TEST NAME}
 
@@ -169,13 +158,30 @@ Keyword Timeout Logging
     ${tc} =    Check Test Case    Timeouted Keyword Timeouts
     Keyword timeout should have been active    ${tc.kws[0].kws[0]}    99 milliseconds       2    exceeded=True
 
+Zero timeout is ignored
+    ${tc} =    Check Test Case    ${TEST NAME}
+    Should Be Equal    ${tc.timeout}    0 seconds
+    Should Be Equal    ${tc.kws[0].timeout}    0 seconds
+    Elapsed Time Should Be Valid    ${tc.kws[0].elapsed_time}    minimum=0.099
+
+Negative timeout is ignored
+    ${tc} =    Check Test Case    ${TEST NAME}
+    Should Be Equal    ${tc.kws[0].timeout}    - 1 second
+    Should Be Equal    ${tc.kws[0].timeout}    - 1 second
+    Elapsed Time Should Be Valid    ${tc.kws[0].elapsed_time}    minimum=0.099
+
+Invalid test timeout
+    Check Test Case    ${TEST NAME}
+
+Invalid keyword timeout
+    Check Test Case    ${TEST NAME}
+
 *** Keywords ***
 Timeout should have been active
     [Arguments]    ${kw}    ${timeout}    ${msg count}    ${exceeded}=False    ${type}=Test
     Check Log Message    ${kw.msgs[0]}    ${type} timeout ${timeout} active. * left.    DEBUG    pattern=True
     Length Should Be     ${kw.msgs}       ${msg count}
-    Run Keyword If    ${exceeded}
-    ...    Timeout should have exceeded    ${kw}    ${timeout}    ${type}
+    IF    ${exceeded}    Timeout should have exceeded    ${kw}    ${timeout}    ${type}
 
 Keyword timeout should have been active
     [Arguments]    ${kw}    ${timeout}    ${msg count}    ${exceeded}=False

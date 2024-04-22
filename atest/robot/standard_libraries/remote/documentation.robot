@@ -1,7 +1,6 @@
 *** Settings ***
 Suite Setup      Run Remote Tests And Libdoc
 Resource         remote_resource.robot
-Resource         ../../libdoc/libdoc_resource.robot
 Test Template    Verify executed short doc and full Libdoc
 
 *** Test Cases ***
@@ -15,7 +14,6 @@ Multi
     Short doc\nin two lines.    Short doc\nin two lines.\n\nDoc body\nin\nthree.    1
 
 Nön-ÄSCII
-    [Tags]    no-ipy
     Nön-ÄSCII documentation    Nön-ÄSCII documentation    2
 
 Intro documentation

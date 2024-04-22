@@ -18,13 +18,13 @@ from functools import partial
 from itertools import cycle
 
 
-class LinkFormatter(object):
-    _image_exts = ('.jpg', '.jpeg', '.png', '.gif', '.bmp')
-    _link = re.compile('\[(.+?\|.*?)\]')
-    _url = re.compile('''
-((^|\ ) ["'\(\[]*)           # begin of line or space and opt. any char "'([
+class LinkFormatter:
+    _image_exts = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg')
+    _link = re.compile(r'\[(.+?\|.*?)\]')
+    _url = re.compile(r'''
+((^|\ ) ["'(\[{]*)           # begin of line or space and opt. any char "'([{
 ([a-z][\w+-.]*://[^\s|]+?)   # url
-(?=[\]\)|"'.,!?:;]* ($|\ ))   # opt. any char ])"'.,!?:; and end of line or space
+(?=[)\]}"'.,!?:;|]* ($|\ ))  # opt. any char )]}"'.,!?:;| and eol or space
 ''', re.VERBOSE|re.MULTILINE|re.IGNORECASE)
 
     def format_url(self, text):
@@ -67,13 +67,15 @@ class LinkFormatter(object):
         return self._get_link(link, content)
 
     def _is_image(self, text):
-        return text.lower().endswith(self._image_exts)
+
+        return (text.startswith('data:image/')
+                or text.lower().endswith(self._image_exts))
 
 
-class LineFormatter(object):
+class LineFormatter:
     handles = lambda self, line: True
     newline = '\n'
-    _bold = re.compile('''
+    _bold = re.compile(r'''
 (                         # prefix (group 1)
   (^|\ )                  # begin of line or space
   ["'(]* _?               # optionally any char "'( and optional begin of italic
@@ -86,14 +88,14 @@ class LineFormatter(object):
   ($|\ )                  # end of line or space
 )
 ''', re.VERBOSE)
-    _italic = re.compile('''
+    _italic = re.compile(r'''
 ( (^|\ ) ["'(]* )          # begin of line or space and opt. any char "'(
 _                          # start of italic
 ([^\ _].*?)                # no space or underline and then anything
 _                          # end of italic
 (?= ["').,!?:;]* ($|\ ) )  # opt. any char "').,!?:; and end of line or space
 ''', re.VERBOSE)
-    _code = re.compile('''
+    _code = re.compile(r'''
 ( (^|\ ) ["'(]* )          # same as above with _ changed to ``
 ``
 ([^\ `].*?)
@@ -123,10 +125,9 @@ _                          # end of italic
         return self._code.sub('\\1<code>\\3</code>', line)
 
 
-class HtmlFormatter(object):
+class HtmlFormatter:
 
     def __init__(self):
-        self._results = []
         self._formatters = [TableFormatter(),
                             PreformattedFormatter(),
                             ListFormatter(),
@@ -136,24 +137,25 @@ class HtmlFormatter(object):
         self._current = None
 
     def format(self, text):
+        results = []
         for line in text.splitlines():
-            self._process_line(line)
-        self._end_current()
-        return '\n'.join(self._results)
+            self._process_line(line, results)
+        self._end_current(results)
+        return '\n'.join(results)
 
-    def _process_line(self, line):
+    def _process_line(self, line, results):
         if not line.strip():
-            self._end_current()
+            self._end_current(results)
         elif self._current and self._current.handles(line):
             self._current.add(line)
         else:
-            self._end_current()
+            self._end_current(results)
             self._current = self._find_formatter(line)
             self._current.add(line)
 
-    def _end_current(self):
+    def _end_current(self, results):
         if self._current:
-            self._results.append(self._current.end())
+            results.append(self._current.end())
             self._current = None
 
     def _find_formatter(self, line):
@@ -162,7 +164,7 @@ class HtmlFormatter(object):
                 return formatter
 
 
-class _Formatter(object):
+class _Formatter:
     _strip_lines = True
 
     def __init__(self):
@@ -233,8 +235,8 @@ class ParagraphFormatter(_Formatter):
 
 
 class TableFormatter(_Formatter):
-    _table_line = re.compile('^\| (.* |)\|$')
-    _line_splitter = re.compile(' \|(?= )')
+    _table_line = re.compile(r'^\| (.* |)\|$')
+    _line_splitter = re.compile(r' \|(?= )')
     _format_cell_content = LineFormatter().format
 
     def _handles(self, line):
@@ -282,8 +284,7 @@ class ListFormatter(_Formatter):
     _format_item = LineFormatter().format
 
     def _handles(self, line):
-        return line.strip().startswith('- ') or \
-                line.startswith(' ') and self._lines
+        return line.strip().startswith('- ') or line.startswith(' ') and self._lines
 
     def format(self, lines):
         items = ['<li>%s</li>' % self._format_item(line)

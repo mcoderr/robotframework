@@ -4,6 +4,8 @@ ${PASS MESSAGE}    -PASSED -ALL
 ${FAIL MESSAGE}    -ALL +PASSED
 ${REMOVED FOR MESSAGE}     -FOR -ALL
 ${KEPT FOR MESSAGE}        +FOR -ALL
+${REMOVED WHILE MESSAGE}     -WHILE -ALL
+${KEPT WHILE MESSAGE}        +WHILE -ALL
 ${REMOVED WUKS MESSAGE}    -WUKS -ALL
 ${KEPT WUKS MESSAGE}       +WUKS -ALL
 ${REMOVED BY NAME MESSAGE}    -BYNAME -ALL
@@ -11,23 +13,32 @@ ${KEPT BY NAME MESSAGE}    +BYNAME -ALL
 ${REMOVED BY PATTERN MESSAGE}    -BYPATTERN -ALL
 ${KEPT BY PATTERN MESSAGE}    +BYPATTERN -ALL
 
-*** Test Case ***
-
+*** Test Cases ***
 Passing
+    [Setup]       Log    ${PASS MESSAGE}
     Log    ${PASS MESSAGE}
+    [Teardown]    Run Keywords    Log    ${PASS MESSAGE}    AND    Log    ${PASS MESSAGE}
 
 Failing
     [Documentation]    FAIL Message
     Log     ${FAIL MESSAGE}
     Fail    Message
 
-For when test fails
+FOR when test fails
     [Documentation]    FAIL Cannot pass
     My FOR
     Fail    Cannot pass
 
-For when test passes
+FOR when test passes
     My FOR
+
+WHILE when test fails
+    [Documentation]    FAIL Cannot pass
+    My WHILE
+    Fail    Cannot pass
+
+WHILE when test passes
+    My WHILE
 
 WUKS when test fails
     [Documentation]    FAIL Cannot pass
@@ -87,11 +98,24 @@ Warnings and errors are preserved
 
 *** Keywords ***
 My FOR
-    :FOR    ${item}    IN    one    two    three    LAST
-    \    Run Keyword If    "${item}" == "LAST"
-    \    ...    Log    ${KEPT FOR MESSAGE} ${item}
-    \    ...    ELSE
-    \    ...    Log    ${REMOVED FOR MESSAGE} ${item}
+    FOR    ${item}    IN    one    two    three    LAST
+        IF    "${item}" == "LAST"
+            Log    ${KEPT FOR MESSAGE} ${item}
+        ELSE
+            Log    ${REMOVED FOR MESSAGE} ${item}
+        END
+    END
+
+My WHILE
+    ${i}=    Set variable     ${1}
+    WHILE    $i < 5
+        IF    $i == 4
+            Log    ${KEPT WHILE MESSAGE} ${i}
+        ELSE
+            Log    ${REMOVED WHILE MESSAGE} ${i}
+        END
+        ${i}=    Evaluate    $i + 1
+    END
 
 My WUKS
     Set Test Variable    $COUNTER    ${COUNTER + 1}
@@ -101,7 +125,7 @@ My WUKS
 Remove By Name
     [Arguments]    ${whatever}=default
     Log    ${REMOVED BY NAME MESSAGE}
-    [Return]    ${whatever}
+    RETURN    ${whatever}
 
 Do not remove by name
     Remove By Name
@@ -110,7 +134,7 @@ Do not remove by name
 This should be removed
     [Arguments]    ${whatever}=default
     Log    ${REMOVED BY PATTERN MESSAGE}
-    [Return]    ${whatever}
+    RETURN    ${whatever}
 
 This should be removed also
     Log    ${REMOVED BY PATTERN MESSAGE}

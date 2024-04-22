@@ -1,4 +1,4 @@
-*** Setting ***
+*** Settings ***
 Documentation     Setting metadata for test suite directory
 Suite Setup       My Setup    Setup of test suite directory
 Suite Teardown    My Teardown    Teardown of    test suite directory
@@ -8,12 +8,14 @@ Force Tags        suite force
 Test Timeout      13 days 6 hours 50 minutes
 Library           OperatingSystem
 Invalid
+Default Tags      Not allowed
+Test Template     Not allowed
 
-*** Variable ***
+*** Variables ***
 ${default}        default
 ${default_tag_2}    suite${default}2
 
-*** Keyword ***
+*** Keywords ***
 My Setup
     [Arguments]    ${msg}
     Log    ${msg}
@@ -27,5 +29,5 @@ My Teardown
 Create Message
     [Arguments]    @{msg_parts}
     ${msg} =    Catenate    @{msg_parts}
-    [Return]    ${msg}
+    RETURN    ${msg}
 

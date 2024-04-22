@@ -3,31 +3,40 @@ Force Tags      require-docutils
 Resource        formats_resource.robot
 
 *** Test Cases ***
-One ReST
+One reST using code-directive
     Run sample file and check tests    ${EMPTY}    ${RESTDIR}/sample.rst
 
-ReST With ReST Resource
+ReST With reST Resource
     Previous Run Should Have Been Successful
     Check Test Case    Resource File
 
-ReST Converted To HTML Is Deprecated
+Parsing errors have correct source
     Previous Run Should Have Been Successful
-    Check HTML Deprecation Message    0    ${RESTDIR}/sample.rst
-    Check HTML Deprecation Message    2    ${RESOURCEDIR}/rest_resource.rst
-    Check HTML Deprecation Message    3    ${RESOURCEDIR}/rest_resource2.rest
-
-Parsing reST files automatically is deprecated
-    Previous Run Should Have Been Successful
-    Check Automatic Parsing Deprecated Message    1    ${RESTDIR}/sample.rst
-    Length should be    ${ERRORS}    4
-
-Using --extension avoids deprecation warning
-    Run sample file and check tests    --extension rst    ${RESTDIR}/sample.rst
-    Length should be    ${ERRORS}    3
+    Error in file    0    ${RESTDIR}/sample.rst    14
+    ...   Non-existing setting 'Invalid'.
+    Error in file    1    ${RESTDIR}/../resources/rest_directive_resource.rst    3
+    ...   Non-existing setting 'Invalid Resource'.
+    Length should be    ${ERRORS}    2
 
 ReST Directory
     Run Suite Dir And Check Results    -F rst:rest    ${RESTDIR}
 
-Directory With ReST Init
+Directory With reST Init
     Previous Run Should Have Been Successful
     Check Suite With Init    ${SUITE.suites[1]}
+
+Parsing errors in init file have correct source
+    Previous Run Should Have Been Successful
+    Error in file    0    ${RESTDIR}/sample.rst    14
+    ...   Non-existing setting 'Invalid'.
+    Error in file    1    ${RESTDIR}/with_init/__init__.rst    4
+    ...   Non-existing setting 'Invalid Init'.
+    Error in file    2    ${RESTDIR}/../resources/rest_directive_resource.rst    3
+    ...   Non-existing setting 'Invalid Resource'.
+    Length should be    ${ERRORS}    3
+
+'.robot.rst' files are parsed automatically
+    Run Tests    ${EMPTY}    ${RESTDIR}/with_init
+    Should Be Equal    ${SUITE.name}    With Init
+    Should Be Equal    ${SUITE.suites[0].name}    Sub Suite2
+    Should Contain Tests    ${SUITE}    Suite2 Test

@@ -1,6 +1,5 @@
 import unittest
 
-from robot.utils import PY3
 from robot.utils.asserts import (assert_almost_equal, assert_equal,
                                  assert_false, assert_none,
                                  assert_not_almost_equal, assert_not_equal,
@@ -10,15 +9,11 @@ from robot.utils.asserts import (assert_almost_equal, assert_equal,
 
 AE = AssertionError
 
-if PY3:
-    long = int
-
-
 class MyExc(Exception):
     pass
 
 
-class MyEqual(object):
+class MyEqual:
     def __init__(self, attr=None):
         self.attr = attr
     def __eq__(self, obj):
@@ -73,14 +68,20 @@ class TestAsserts(unittest.TestCase):
 
     def test_assert_equal_with_values_having_same_string_repr(self):
         for val, type_ in [(1, 'integer'),
-                           (long(1), 'integer'),
                            (MyEqual(1), 'MyEqual')]:
             assert_raises_with_msg(AE, '1 (string) != 1 (%s)' % type_,
                                    assert_equal, '1', val)
         assert_raises_with_msg(AE, '1.0 (float) != 1.0 (string)',
-                               assert_equal, 1.0, u'1.0')
+                               assert_equal, 1.0, '1.0')
         assert_raises_with_msg(AE, 'True (string) != True (boolean)',
                                assert_equal, 'True', True)
+
+    def test_assert_equal_with_custom_formatter(self):
+        assert_equal('hyvä', 'hyvä', formatter=repr)
+        assert_raises_with_msg(AE, "'hyvä' != 'paha'",
+                               assert_equal, 'hyvä', 'paha', formatter=repr)
+        assert_raises_with_msg(AE, "'hyv\\xe4' != 'paha'",
+                               assert_equal, 'hyvä', 'paha', formatter=ascii)
 
     def test_assert_not_equal(self):
         assert_not_equal('abc', 'ABC')
@@ -92,6 +93,11 @@ class TestAsserts(unittest.TestCase):
         raise_msg(AE, "hello: 42 == 42", assert_not_equal, 42, 42, 'hello')
         raise_msg(AE, "hello", assert_not_equal, MyEqual('cat'), MyEqual('cat'),
                   'hello', False)
+
+    def test_assert_not_equal_with_custom_formatter(self):
+        assert_not_equal('hyvä', 'paha', formatter=repr)
+        assert_raises_with_msg(AE, "'ä' == 'ä'",
+                               assert_not_equal, 'ä', 'ä', formatter=repr)
 
     def test_fail(self):
         assert_raises(AE, fail)

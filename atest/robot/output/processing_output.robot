@@ -11,8 +11,8 @@ Test Case File Suite
     Should Be Equal    ${SUITE.metadata['Something']}    My Value
     Should Be Equal as Strings    ${SUITE.metadata}    {Something: My Value}
     Check Normal Suite Defaults    ${SUITE}
-    Should Be Equal    ${SUITE.full_message}    2 critical tests, 2 passed, 0 failed\n 2 tests total, 2 passed, 0 failed
-    Should Be Equal    ${SUITE.statistics.message}    2 critical tests, 2 passed, 0 failed\n 2 tests total, 2 passed, 0 failed
+    Should Be Equal    ${SUITE.full_message}    2 tests, 2 passed, 0 failed
+    Should Be Equal    ${SUITE.statistics.message}    2 tests, 2 passed, 0 failed
     Should Contain Tests    ${SUITE}    First One    Second One
 
 Directory Suite
@@ -45,61 +45,65 @@ Minimal hand-created output
 My Run Robot And Rebot
     [Arguments]    ${params}    ${paths}
     Run Tests Without Processing Output    ${params}    ${paths}
+    Validate Elapsed In Output
     Copy Previous Outfile
     Run Rebot    ${EMPTY}    ${OUTFILE COPY}
+    Validate Elapsed In Output
+
+Validate Elapsed In Output
+    ${statuses} =    Get Elements    ${OUTFILE}    .//status
+    FOR    ${elem}    IN    @{statuses}
+        Should Match Regexp    ${elem.attrib}[elapsed]    ^\\d+\\.\\d+$
+    END
 
 Check Normal Suite Defaults
-    [Arguments]    ${mysuite}    ${message}=    ${tests}=[]    ${setup}=${None}    ${teardown}=${None}
-    Log    ${mysuite.name}
-    Check Suite Defaults    ${mysuite}    ${message}    ${tests}    ${setup}    ${teardown}
-    Check Normal Suite Times    ${mysuite}
+    [Arguments]    ${suite}    ${message}=    ${setup}=${None}    ${teardown}=${None}
+    Check Suite Defaults    ${suite}    ${message}    ${setup}    ${teardown}
+    Check Normal Suite Times    ${suite}
 
 Check Minimal Suite Defaults
-    [Arguments]    ${mysuite}    ${message}=
-    Check Suite Defaults    ${mysuite}    ${message}
-    Check Minimal Suite Times    ${mysuite}
+    [Arguments]    ${suite}    ${message}=
+    Check Suite Defaults    ${suite}    ${message}
+    Check Minimal Suite Times    ${suite}
 
 Check Normal Suite Times
-    [Arguments]    ${mysuite}
-    Timestamp Should Be Valid    ${mysuite.starttime}
-    Timestamp Should Be Valid    ${mysuite.endtime}
-    Elapsed Time Should Be Valid    ${mysuite.elapsedtime}
-    Should Be True    ${mysuite.elapsedtime} >= 1
+    [Arguments]    ${suite}
+    Timestamp Should Be Valid       ${suite.start_time}
+    Timestamp Should Be Valid       ${suite.end_time}
+    Elapsed Time Should Be Valid    ${suite.elapsed_time}    minimum=0.001
 
 Check Minimal Suite Times
-    [Arguments]    ${mysuite}
-    Should Be Equal    ${mysuite.starttime}    ${NONE}
-    Should Be Equal    ${mysuite.endtime}    ${NONE}
-    Should Be Equal    ${mysuite.elapsedtime}    ${0}
+    [Arguments]    ${suite}
+    Should Be Equal           ${suite.start_time}      ${NONE}
+    Should Be Equal           ${suite.end_time}        ${NONE}
+    Elapsed Time Should Be    ${suite.elapsed_time}    0
 
 Check Suite Defaults
-    [Arguments]    ${mysuite}    ${message}=    ${tests}=[]    ${setup}=${None}    ${teardown}=${None}
-    Should Be Equal    ${mysuite.message}    ${message}
-    Check Setup Or Teardown    ${mysuite.setup}    ${setup}
-    Check Setup Or Teardown    ${mysuite.teardown}    ${teardown}
-
-Check Setup Or Teardown
-    [Arguments]    ${item}    ${expected}
-    ${actual} =    Set Variable If    "${expected}" == "None"    ${item}    ${item.name}
-    Should Be Equal    ${actual}    ${expected}
+    [Arguments]    ${suite}    ${message}=    ${setup}=${None}    ${teardown}=${None}
+    Should Be Equal    ${suite.message}               ${message}
+    Should Be Equal    ${suite.setup.full_name}       ${setup}
+    Should Be Equal    ${suite.teardown.full_name}    ${teardown}
 
 Check Suite Got From Misc/suites/ Directory
     Check Normal Suite Defaults    ${SUITE}    teardown=BuiltIn.Log
     Should Be Equal    ${SUITE.status}    FAIL
-    Should Contain Suites    ${SUITE}    Fourth    Subsuites    Subsuites2    Tsuite1    Tsuite2
-    ...    Tsuite3
+    Should Contain Suites    ${SUITE}    Suite With Prefix    Fourth    Subsuites
+    ...    Custom name for 📂 'subsuites2'    Suite With Double Underscore
+    ...    Tsuite1    Tsuite2    Tsuite3
     Should Be Empty    ${SUITE.tests}
-    Should Contain Suites    ${SUITE.suites[1]}    Sub1    Sub2
-    :FOR    ${s}    IN
-    ...    ${SUITE.suites[0]}
-    ...    ${SUITE.suites[1].suites[0]}
-    ...    ${SUITE.suites[1].suites[1]}
+    Should Contain Suites    ${SUITE.suites[2]}    Sub1    Sub2
+    FOR    ${s}    IN
+    ...    ${SUITE.suites[1]}
     ...    ${SUITE.suites[2].suites[0]}
-    ...    ${SUITE.suites[3]}
-    ...    ${SUITE.suites[4]}
+    ...    ${SUITE.suites[2].suites[1]}
+    ...    ${SUITE.suites[3].suites[0]}
+
     ...    ${SUITE.suites[5]}
-    \    Should Be Empty    ${s.suites}
+    ...    ${SUITE.suites[6]}
+        Should Be Empty    ${s.suites}
+    END
     Should Contain Tests    ${SUITE}
+    ...    Test With Prefix
     ...    SubSuite1 First
     ...    SubSuite2 First
     ...    SubSuite3 First
@@ -108,11 +112,15 @@ Check Suite Got From Misc/suites/ Directory
     ...    Suite1 Second    Third In Suite1    Suite2 First
     ...    Suite3 First
     ...    Suite4 First
+    ...    Test With Double Underscore
     ...    Test From Sub Suite 4
-    Check Normal Suite Defaults    ${SUITE.suites[0]}    ${EMPTY}    []    teardown=BuiltIn.Log
-    Check Normal Suite Defaults    ${SUITE.suites[1]}
-    Check Normal Suite Defaults    ${SUITE.suites[1].suites[0]}    setup=BuiltIn.Log    teardown=BuiltIn.No Operation
-    Check Normal Suite Defaults    ${SUITE.suites[1].suites[1]}
-    Check Normal Suite Defaults    ${SUITE.suites[2].suites[0]}
-    Check Normal Suite Defaults    ${SUITE.suites[3]}
+    Check Normal Suite Defaults    ${SUITE.suites[0]}
+    Check Normal Suite Defaults    ${SUITE.suites[1]}    setup=BuiltIn.Log    teardown=BuiltIn.Log
+    Check Normal Suite Defaults    ${SUITE.suites[2]}
+    Check Normal Suite Defaults    ${SUITE.suites[2].suites[0]}    setup=Setup    teardown=BuiltIn.No Operation
+    Check Normal Suite Defaults    ${SUITE.suites[2].suites[1]}
+    Check Normal Suite Defaults    ${SUITE.suites[3].suites[0]}
     Check Normal Suite Defaults    ${SUITE.suites[4]}
+    Check Normal Suite Defaults    ${SUITE.suites[4].suites[0]}
+    Check Normal Suite Defaults    ${SUITE.suites[5]}
+    Check Normal Suite Defaults    ${SUITE.suites[6]}

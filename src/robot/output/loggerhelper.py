@@ -13,13 +13,18 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import sys
+from datetime import datetime
+from typing import Callable, Literal
+
 from robot.errors import DataError
-from robot.model import Message as BaseMessage
-from robot.utils import get_timestamp, is_unicode, unic
+from robot.model import Message as BaseMessage, MessageLevel
+from robot.utils import console_encode, safe_str
 
 
 LEVELS = {
-  'NONE'  : 6,
+  'NONE'  : 7,
+  'SKIP'  : 6,
   'FAIL'  : 5,
   'ERROR' : 4,
   'WARN'  : 3,
@@ -27,9 +32,19 @@ LEVELS = {
   'DEBUG' : 1,
   'TRACE' : 0,
 }
+PseudoLevel = Literal['HTML', 'CONSOLE']
 
 
-class AbstractLogger(object):
+def write_to_console(msg, newline=True, stream='stdout'):
+    msg = str(msg)
+    if newline:
+        msg += '\n'
+    stream = sys.__stdout__ if stream.lower() != 'stderr' else sys.__stderr__
+    stream.write(console_encode(msg, stream=stream))
+    stream.flush()
+
+
+class AbstractLogger:
 
     def __init__(self, level='TRACE'):
         self._is_logged = IsLogged(level)
@@ -56,6 +71,13 @@ class AbstractLogger(object):
             msg = msg[6:].lstrip()
         self.write(msg, 'FAIL', html)
 
+    def skip(self, msg):
+        html = False
+        if msg.startswith("*HTML*"):
+            html = True
+            msg = msg[6:].lstrip()
+        self.write(msg, 'SKIP', html)
+
     def error(self, msg):
         self.write(msg, 'ERROR')
 
@@ -69,36 +91,35 @@ class AbstractLogger(object):
 class Message(BaseMessage):
     __slots__ = ['_message']
 
-    def __init__(self, message, level='INFO', html=False, timestamp=None):
-        message = self._normalize_message(message)
+    def __init__(self, message: 'str|Callable[[], str]',
+                 level: 'MessageLevel|PseudoLevel' = 'INFO',
+                 html: bool = False,
+                 timestamp: 'datetime|str|None' = None):
         level, html = self._get_level_and_html(level, html)
-        timestamp = timestamp or get_timestamp()
-        BaseMessage.__init__(self, message, level, html, timestamp)
+        super().__init__(message, level, html, timestamp or datetime.now())
 
-    def _normalize_message(self, msg):
-        if callable(msg):
-            return msg
-        if not is_unicode(msg):
-            msg = unic(msg)
-        if '\r\n' in msg:
-            msg = msg.replace('\r\n', '\n')
-        return msg
-
-    def _get_level_and_html(self, level, html):
+    def _get_level_and_html(self, level, html) -> 'tuple[MessageLevel, bool]':
         level = level.upper()
         if level == 'HTML':
             return 'INFO', True
-        if level not in LEVELS:
-            raise DataError("Invalid log level '%s'." % level)
-        return level, html
+        if level == 'CONSOLE':
+            return 'INFO', html
+        if level in LEVELS:
+            return level, html
+        raise DataError(f"Invalid log level '{level}'.")
 
     @property
-    def message(self):
+    def message(self) -> str:
         self.resolve_delayed_message()
         return self._message
 
     @message.setter
-    def message(self, message):
+    def message(self, message: 'str|Callable[[], str]'):
+        if not callable(message):
+            if not isinstance(message, str):
+                message = safe_str(message)
+            if '\r\n' in message:
+                message = message.replace('\r\n', '\n')
         self._message = message
 
     def resolve_delayed_message(self):
@@ -106,17 +127,17 @@ class Message(BaseMessage):
             self._message = self._message()
 
 
-class IsLogged(object):
+class IsLogged:
 
     def __init__(self, level):
-        self._str_level = level
+        self.level = level.upper()
         self._int_level = self._level_to_int(level)
 
     def __call__(self, level):
         return self._level_to_int(level) >= self._int_level
 
     def set_level(self, level):
-        old = self._str_level.upper()
+        old = self.level
         self.__init__(level)
         return old
 
@@ -125,29 +146,3 @@ class IsLogged(object):
             return LEVELS[level.upper()]
         except KeyError:
             raise DataError("Invalid log level '%s'." % level)
-
-
-class AbstractLoggerProxy(object):
-    _methods = None
-    _no_method = lambda *args: None
-
-    def __init__(self, logger, method_names=None, prefix=None):
-        self.logger = logger
-        for name in method_names or self._methods:
-            setattr(self, name, self._get_method(logger, name, prefix))
-
-    def _get_method(self, logger, name, prefix):
-        for method_name in self._get_method_names(name, prefix):
-            if hasattr(logger, method_name):
-                return getattr(logger, method_name)
-        return self._no_method
-
-    def _get_method_names(self, name, prefix):
-        names = [name, self._toCamelCase(name)] if '_' in name else [name]
-        if prefix:
-            names += [prefix + name for name in names]
-        return names
-
-    def _toCamelCase(self, name):
-        parts = name.split('_')
-        return ''.join([parts[0]] + [part.capitalize() for part in parts[1:]])

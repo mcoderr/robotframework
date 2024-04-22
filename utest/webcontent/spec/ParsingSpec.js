@@ -61,13 +61,11 @@ describe("Handling Suite", function () {
         window.output = window.suiteOutput;
     });
 
-    function expectStats(suite, total, passed, critical, criticalPassed){
+    function expectStats(suite, total, passed, failed, skipped){
         expect(suite.total).toEqual(total);
-        expect(suite.totalPassed).toEqual(passed);
-        expect(suite.totalFailed).toEqual(total-passed);
-        expect(suite.critical).toEqual(critical);
-        expect(suite.criticalPassed).toEqual(criticalPassed);
-        expect(suite.criticalFailed).toEqual(critical-criticalPassed);
+        expect(suite.pass).toEqual(passed);
+        expect(suite.fail).toEqual(failed);
+        expect(suite.skip).toEqual(skipped);
     }
 
     function endsWith(string, ending) {
@@ -80,12 +78,12 @@ describe("Handling Suite", function () {
         expect(suite.name).toEqual("Suite");
         expect(suite.id).toEqual("s1");
         expect(suite.status).toEqual("PASS");
-        expect(endsWith(suite.source, "Suite.txt")).toEqual(true);
+        expect(endsWith(suite.source, "Suite.robot")).toEqual(true);
         expect(suite.doc()).toEqual("<p>suite doc</p>");
         expect(suite.times).toBeDefined();
         expect(suite.times.elapsedMillis).toBeGreaterThan(0);
         expect(suite.times.elapsedMillis).toBeLessThan(1000);
-        expectStats(suite, 1, 1, 1, 1);
+        expectStats(suite, 1, 1, 0, 0);
         expect(suite.metadata[0]).toEqual(["meta", "<p>data</p>"]);
         expect(suite.childrenNames).toEqual(['keyword', 'suite', 'test']);
     });
@@ -115,7 +113,7 @@ describe("Handling Suite", function () {
         expect(kw.times.elapsedMillis).toBeGreaterThan(99);
         expect(kw.times.elapsedMillis).toBeLessThan(200);
         expect(kw.type).toEqual("KEYWORD");
-        expect(kw.childrenNames).toEqual(['keyword', 'message'])
+        expect(kw.childrenNames).toEqual(['keyword']);
     });
 
     it("should parse for loop", function() {
@@ -131,7 +129,7 @@ describe("Handling Suite", function () {
     });
 
     it("should parse message", function () {
-        var message = nthKeyword(firstTest(window.testdata.suite()), 0).messages()[0];
+        var message = nthKeyword(firstTest(window.testdata.suite()), 0).children()[0];
         expect(message.text).toEqual("Slept 100 milliseconds");
     });
 
@@ -230,7 +228,7 @@ describe("Handling messages", function (){
     }
 
     function kwMessages(kw) {
-        return nthKeyword(firstTest(window.testdata.suite()), kw).messages();
+        return nthKeyword(firstTest(window.testdata.suite()), kw).children();
     }
 
     function kwMessage(kw) {
@@ -265,7 +263,7 @@ describe("Handling messages", function (){
         var callbackExecuted = false;
         window.testdata.ensureLoaded(firstError.link, function (pathToKeyword) {
             var errorKw = window.testdata.findLoaded(pathToKeyword[pathToKeyword.length-1]);
-            expect(errorKw.messages()[0].level).toEqual("WARN");
+            expect(errorKw.children()[0].level).toEqual("WARN");
             callbackExecuted = true;
         });
         expect(callbackExecuted).toBeTruthy();
@@ -504,7 +502,7 @@ describe("Element ids", function (){
     });
 
     it("should give id for a message", function (){
-        var msg = subSuite(0, subSuite(3)).tests()[0].keywords()[0].messages()[0];
+        var msg = subSuite(0, subSuite(3)).tests()[0].keywords()[0].children()[0];
         expect(window.testdata.findLoaded(msg.id)).toEqual(msg);
     });
 

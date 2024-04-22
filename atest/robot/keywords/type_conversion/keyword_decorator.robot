@@ -6,6 +6,15 @@ Resource         atest_resource.robot
 Integer
     Check Test Case    ${TESTNAME}
 
+Integer as hex
+    Check Test Case    ${TESTNAME}
+
+Integer as octal
+    Check Test Case    ${TESTNAME}
+
+Integer as binary
+    Check Test Case    ${TESTNAME}
+
 Invalid integer
     Check Test Case    ${TESTNAME}
 
@@ -36,10 +45,16 @@ Invalid decimal
 Boolean
     Check Test Case    ${TESTNAME}
 
-Invalid boolean is accepted as-is
+Invalid boolean string is accepted as-is
+    Check Test Case    ${TESTNAME}
+
+Invalid boolean
     Check Test Case    ${TESTNAME}
 
 String
+    Check Test Case    ${TESTNAME}
+
+Invalid string
     Check Test Case    ${TESTNAME}
 
 Bytes
@@ -48,18 +63,13 @@ Bytes
 Invalid bytes
     Check Test Case    ${TESTNAME}
 
-Bytestring
-    [Tags]    require-py3
-    Check Test Case    ${TESTNAME}
-
-Invalid bytesstring
-    [Tags]    require-py3
-    Check Test Case    ${TESTNAME}
-
 Bytearray
     Check Test Case    ${TESTNAME}
 
 Invalid bytearray
+    Check Test Case    ${TESTNAME}
+
+Bytestring replacement
     Check Test Case    ${TESTNAME}
 
 Datetime
@@ -80,15 +90,46 @@ Timedelta
 Invalid timedelta
     Check Test Case    ${TESTNAME}
 
+Path
+    Check Test Case    ${TESTNAME}
+
+Invalid Path
+    Check Test Case    ${TESTNAME}
+
 Enum
-    [Tags]    require-enum
+    Check Test Case    ${TESTNAME}
+
+Flag
+    Check Test Case    ${TESTNAME}
+
+IntEnum
+    Check Test Case    ${TESTNAME}
+
+IntFlag
+    Check Test Case    ${TESTNAME}
+
+Normalized enum member match
+    Check Test Case    ${TESTNAME}
+
+Normalized enum member match with multiple matches
     Check Test Case    ${TESTNAME}
 
 Invalid Enum
-    [Tags]    require-enum
+    Check Test Case    ${TESTNAME}
+
+Invalid IntEnum
     Check Test Case    ${TESTNAME}
 
 NoneType
+    Check Test Case    ${TESTNAME}
+
+Invalid NoneType
+    Check Test Case    ${TESTNAME}
+
+None
+    Check Test Case    ${TESTNAME}
+
+Invalid None
     Check Test Case    ${TESTNAME}
 
 List
@@ -122,31 +163,21 @@ Invalid mapping (abc)
     Check Test Case    ${TESTNAME}
 
 Set
-    [Tags]    require-py3
     Check Test Case    ${TESTNAME}
 
 Invalid set
-    [Tags]    require-py3
     Check Test Case    ${TESTNAME}
 
 Set (abc)
-    [Tags]    require-py3
     Check Test Case    ${TESTNAME}
 
 Invalid set (abc)
-    [Tags]    require-py3
     Check Test Case    ${TESTNAME}
 
 Frozenset
-    [Tags]    require-py3
     Check Test Case    ${TESTNAME}
 
 Invalid frozenset
-    [Tags]    require-py3
-    Check Test Case    ${TESTNAME}
-
-Sets are not supported in Python 2
-    [Tags]    require-py2
     Check Test Case    ${TESTNAME}
 
 Unknown types are not converted
@@ -174,33 +205,49 @@ Invalid Kwargs
     Check Test Case    ${TESTNAME}
 
 Kwonly
-    [Tags]    require-py3
     Check Test Case    ${TESTNAME}
 
 Invalid kwonly
-    [Tags]    require-py3
-    Check Test Case    ${TESTNAME}
-
-Non-strings are not converted
-    Check Test Case    ${TESTNAME}
-
-String None is converted to None object
     Check Test Case    ${TESTNAME}
 
 Invalid type spec causes error
     Check Test Case    ${TESTNAME}
-    ${error} =    Catenate
-    ...    Adding keyword 'invalid_type_spec' to library 'KeywordDecorator' failed:
+    Error In Library    KeywordDecorator
+    ...    Adding keyword 'invalid_type_spec' failed:
     ...    Type information must be given as a dictionary or a list, got string.
-    Check Log Message    ${ERRORS[0]}    ${error}    ERROR
+    ...    index=0
 
 Non-matching argument name causes error
     Check Test Case    ${TESTNAME}
-    ${error} =    Catenate
-    ...    Adding keyword 'non_matching_name' to library 'KeywordDecorator' failed:
+    Error In Library    KeywordDecorator
+    ...    Adding keyword 'non_matching_name' failed:
     ...    Type information given to non-existing arguments 'no_match' and 'xxx'.
-    Check Log Message    ${ERRORS[1]}    ${error}    ERROR
+    ...    index=1
 
 Type can be given to `return` without an error
     [Documentation]    `return` isn't used for anything yet, though.
+    Check Test Case    ${TESTNAME}
+
+Value contains variable
+    Check Test Case    ${TESTNAME}
+
+Default value is not used if explicit type conversion succeeds
+    Check Test Case    ${TESTNAME}
+
+Default value is used if explicit type conversion fails
+    Check Test Case    ${TESTNAME}
+
+Explicit conversion failure is used if both conversions fail
+    Check Test Case    ${TESTNAME}
+
+Multiple types using Union
+    Check Test Case    ${TESTNAME}
+
+Argument not matching Union tupes
+    Check Test Case    ${TESTNAME}
+
+Multiple types using tuple
+    Check Test Case    ${TESTNAME}
+
+Argument not matching tuple tupes
     Check Test Case    ${TESTNAME}

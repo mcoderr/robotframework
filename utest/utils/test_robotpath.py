@@ -2,7 +2,7 @@ import unittest
 import os
 import os.path
 
-from robot.utils import abspath, normpath, get_link_path, WINDOWS, unicode
+from robot.utils import abspath, normpath, get_link_path, WINDOWS
 from robot.utils.robotpath import CASE_INSENSITIVE_FILESYSTEM
 from robot.utils.asserts import assert_equal, assert_true
 
@@ -14,15 +14,15 @@ class TestAbspathNormpath(unittest.TestCase):
             exp = os.path.abspath(exp)
             path = abspath(inp)
             assert_equal(path, exp, inp)
-            assert_true(isinstance(path, unicode), inp)
+            assert_true(isinstance(path, str), inp)
             exp = exp.lower() if CASE_INSENSITIVE_FILESYSTEM else exp
             path = abspath(inp, case_normalize=True)
             assert_equal(path, exp, inp)
-            assert_true(isinstance(path, unicode), inp)
+            assert_true(isinstance(path, str), inp)
 
     def test_abspath_when_cwd_is_non_ascii(self):
         orig = abspath('.')
-        nonasc = u'\xe4'
+        nonasc = 'ä'
         os.mkdir(nonasc)
         os.chdir(nonasc)
         try:
@@ -49,19 +49,17 @@ class TestAbspathNormpath(unittest.TestCase):
         def test_add_drive(self):
             drive = os.path.abspath(__file__)[:2]
             for path in ['.', os.path.basename(__file__), r'\abs\path']:
-                abs = abspath(path)
-                assert_equal(abs, os.path.abspath(path))
-                assert_true(abs.startswith(drive))
+                assert_true(abspath(path).startswith(drive))
 
     def test_normpath(self):
         for inp, exp in self._get_inputs():
             path = normpath(inp)
             assert_equal(path, exp, inp)
-            assert_true(isinstance(path, unicode), inp)
+            assert_true(isinstance(path, str), inp)
             exp = exp.lower() if CASE_INSENSITIVE_FILESYSTEM else exp
             path = normpath(inp, case_normalize=True)
             assert_equal(path, exp, inp)
-            assert_true(isinstance(path, unicode), inp)
+            assert_true(isinstance(path, str), inp)
 
     def _get_inputs(self):
         inputs = self._windows_inputs if WINDOWS else self._posix_inputs
@@ -87,7 +85,7 @@ class TestAbspathNormpath(unittest.TestCase):
                   ('C:\\xxx\\..\\yyy\\..\\temp\\.', 'C:\\temp'),
                   ('c:\\Non\\Existing\\..', 'c:\\Non')]
         for x in 'ABCDEFGHIJKLMNOPQRSTUVXYZ':
-            base = '%s:\\' % x
+            base = f'{x}:\\'
             inputs.append((base, base))
             inputs.append((base.lower(), base.lower()))
             inputs.append((base[:2], base))
@@ -108,8 +106,8 @@ class TestAbspathNormpath(unittest.TestCase):
                 ('../..', '../..'),
                 ('foo', 'foo'),
                 ('foo/bar', 'foo/bar'),
-                (u'\xe4', u'\xe4'),
-                (u'\xe4/\xf6', u'\xe4/\xf6'),
+                ('ä', 'ä'),
+                ('ä/ö', 'ä/ö'),
                 ('./foo', 'foo'),
                 ('foo/.', 'foo'),
                 ('foo/..', '.'),
@@ -122,12 +120,11 @@ class TestGetLinkPath(unittest.TestCase):
     def test_basics(self):
         for base, target, expected in self._get_basic_inputs():
             assert_equal(get_link_path(target, base).replace('R:', 'r:'),
-                         expected, '%s -> %s' % (target, base))
+                         expected, f'{target} -> {base}')
 
     def test_base_is_existing_file(self):
         assert_equal(get_link_path(os.path.dirname(__file__), __file__), '.')
-        assert_equal(get_link_path(__file__, __file__),
-                     self._expected_basename(__file__))
+        assert_equal(get_link_path(__file__, __file__), os.path.basename(__file__))
 
     def test_non_existing_paths(self):
         assert_equal(get_link_path('/nonex/target', '/nonex/base'), '../target')
@@ -136,25 +133,25 @@ class TestGetLinkPath(unittest.TestCase):
                      os.path.relpath('/nonex', os.path.dirname(__file__)).replace(os.sep, '/'))
 
     def test_non_ascii_paths(self):
-        assert_equal(get_link_path(u'\xe4\xf6.txt', ''), '%C3%A4%C3%B6.txt')
-        assert_equal(get_link_path(u'\xe4/\xf6.txt', u'\xe4'), '%C3%B6.txt')
+        assert_equal(get_link_path('äö.txt', ''), '%C3%A4%C3%B6.txt')
+        assert_equal(get_link_path('ä/ö.txt', 'ä'), '%C3%B6.txt')
 
     def _get_basic_inputs(self):
         directory = os.path.dirname(__file__)
-        inputs = [(directory, __file__, self._expected_basename(__file__)),
+        inputs = [(directory, __file__, os.path.basename(__file__)),
                   (directory, directory, '.'),
-                  (directory, directory + '/Non/Ex', 'Non/Ex'),
+                  (directory, directory + '/', '.'),
+                  (directory, directory + '//', '.'),
+                  (directory, directory + '///', '.'),
+                  (directory, directory + '/trailing/part', 'trailing/part'),
+                  (directory, directory + '//trailing//part', 'trailing/part'),
                   (directory, directory + '/..', '..'),
                   (directory, directory + '/../X', '../X'),
-                  (directory, directory + '/./.././..', '../..'),
-                  (directory, '.',
-                   os.path.relpath('.', directory).replace(os.sep, '/'))]
+                  (directory, directory + '/./.././/..', '../..'),
+                  (directory, '.', os.path.relpath('.', directory).replace(os.sep, '/'))]
         platform_inputs = (self._posix_inputs() if os.sep == '/' else
                            self._windows_inputs())
         return inputs + platform_inputs
-
-    def _expected_basename(self, path):
-        return os.path.basename(path).replace('$py.class', '%24py.class')
 
     def _posix_inputs(self):
         return [('/tmp/', '/tmp/bar.txt', 'bar.txt'),
@@ -166,6 +163,10 @@ class TestGetLinkPath(unittest.TestCase):
                 ('/tmp', '/x/bar.txt', '../x/bar.txt'),
                 ('/tmp', '/x/y/z/bar.txt', '../x/y/z/bar.txt'),
                 ('/', '/x/bar.txt', 'x/bar.txt'),
+                ('/home//test', '/home/user', '../user'),
+                ('//home/test', '/home/user', '../user'),
+                ('///home/test', '/home/user', '../user'),
+                ('////////////////home/test', '/home/user', '../user'),
                 ('/path/to', '/path/to/result_in_same_dir.html',
                  'result_in_same_dir.html'),
                 ('/path/to/dir', '/path/to/result_in_parent_dir.html',

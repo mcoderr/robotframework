@@ -1,10 +1,10 @@
 import unittest
-from robot.utils.asserts import (assert_equal, assert_not_equal, assert_raises,
-                                 assert_raises_with_msg, assert_true)
+from pathlib import Path
 
-from robot.model.testcase import TestCase, TestCases
-from robot.model import TestSuite
-from robot.utils import PY2, unicode
+from robot.utils.asserts import (assert_equal, assert_false, assert_not_equal, assert_raises,
+                                 assert_raises_with_msg, assert_true)
+from robot.model import TestSuite, TestCase, Keyword
+from robot.model.testcase import TestCases
 
 
 class TestTestCase(unittest.TestCase):
@@ -22,6 +22,38 @@ class TestTestCase(unittest.TestCase):
         assert_equal(suite.suites[0].tests[0].id, 's1-s1-t1')
         assert_equal(suite.suites[0].tests[1].id, 's1-s1-t2')
         assert_equal(suite.suites[1].tests[0].id, 's1-s2-t1')
+
+    def test_source(self):
+        test = TestCase()
+        assert_equal(test.source, None)
+        suite = TestSuite()
+        suite.tests.append(test)
+        assert_equal(test.source, None)
+        suite.tests.append(test)
+        suite.source = '/unit/tests'
+        assert_equal(test.source, Path('/unit/tests'))
+
+    def test_setup(self):
+        assert_equal(self.test.setup.__class__, Keyword)
+        assert_equal(self.test.setup.name, None)
+        assert_false(self.test.setup)
+        self.test.setup.config(name='setup kw')
+        assert_equal(self.test.setup.name, 'setup kw')
+        assert_true(self.test.setup)
+        self.test.setup = None
+        assert_equal(self.test.setup.name, None)
+        assert_false(self.test.setup)
+
+    def test_teardown(self):
+        assert_equal(self.test.teardown.__class__, Keyword)
+        assert_equal(self.test.teardown.name, None)
+        assert_false(self.test.teardown)
+        self.test.teardown.config(name='teardown kw')
+        assert_equal(self.test.teardown.name, 'teardown kw')
+        assert_true(self.test.teardown)
+        self.test.teardown = None
+        assert_equal(self.test.teardown.name, None)
+        assert_false(self.test.teardown)
 
     def test_modify_tags(self):
         self.test.tags.add(['t0', 't3'])
@@ -67,24 +99,12 @@ class TestTestCase(unittest.TestCase):
         assert_equal(copy.name, 'New')
         assert_equal(copy.doc, 'New')
 
-
-class TestStringRepresentation(unittest.TestCase):
-
-    def setUp(self):
-        self.empty = TestCase()
-        self.ascii = TestCase(name='Kekkonen')
-        self.non_ascii = TestCase(name=u'hyv\xe4 nimi')
-
-    def test_unicode(self):
-        assert_equal(unicode(self.empty), '')
-        assert_equal(unicode(self.ascii), 'Kekkonen')
-        assert_equal(unicode(self.non_ascii), u'hyv\xe4 nimi')
-
-    if PY2:
-        def test_str(self):
-            assert_equal(str(self.empty), '')
-            assert_equal(str(self.ascii), 'Kekkonen')
-            assert_equal(str(self.non_ascii), u'hyv\xe4 nimi'.encode('UTF-8'))
+    def test_str_and_repr(self):
+        for name in '', 'Kekkonen', 'hyvä nimi', "quo\"te's":
+            test = TestCase(name)
+            expected = f'robot.model.TestCase(name={name!r})'
+            assert_equal(str(test), expected)
+            assert_equal(repr(test), expected)
 
 
 class TestTestCases(unittest.TestCase):

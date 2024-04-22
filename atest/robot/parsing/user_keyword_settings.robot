@@ -5,22 +5,13 @@ Resource          atest_resource.robot
 *** Test Cases ***
 Name
     ${tc} =    Check Test Case    Normal name
-    Should Be Equal  ${tc.kws[0].name}    Normal name
+    Should Be Equal  ${tc.kws[0].full_name}    Normal name
 
 Names are not formatted
     ${tc} =    Check Test Case    Names are not formatted
     FOR    ${kw}    IN    @{tc.kws}
-        Should Be Equal    ${kw.name}  user_keyword nameS _are_not_ FORmatted
+        Should Be Equal    ${kw.full_name}  user_keyword nameS _are_not_ FORmatted
     END
-
-'...' as name is deprecated
-    Check Test Case    ${TEST NAME}
-    ${path} =    Normalize Path    ${DATADIR}/parsing/user_keyword_settings.robot
-    ${message} =    Catenate
-    ...    Error in file '${path}': Invalid syntax in keyword '...':
-    ...    Using '...' as keyword name is deprecated.
-    ...    It will be considered line continuation in Robot Framework 3.2.
-    Check Log Message    ${ERRORS}[0]    ${message}    WARN
 
 No documentation
     Verify Documentation    ${EMPTY}    test=Normal name
@@ -29,7 +20,7 @@ Documentation
     Verify Documentation    Documentation for this user keyword
 
 Documentation in multiple columns
-    Verify Documentation    Documentation for this user keyword in multiple columns
+    Verify Documentation    Documentation${SPACE * 4}for this user keyword${SPACE*10}in multiple columns
 
 Documentation in multiple rows
     Verify Documentation    1st line is shortdoc.
@@ -43,8 +34,11 @@ Documentation with variables
 Documentation with non-existing variables
     Verify Documentation    Starting from RF 2.1 \${NONEX} variables are left unchanged.
 
+Documentation with unclosed variables
+    Verify Documentation    Not \${closed
+
 Documentation with escaping
-    Verify Documentation    \${XXX} c:\\temp${SPACE*2}\\
+    Verify Documentation    \${XXX} - c:\\temp -${SPACE*2}- \\
 
 Arguments
     [Documentation]    Tested more thoroughly elsewhere.
@@ -73,22 +67,36 @@ Teardown with escaping
     Verify Teardown    \${notvar} is not a variable
 
 Return
-    Check Test Case    ${TEST NAME}
+    [Documentation]    [Return] is deprecated. In parsing it is transformed to RETURN.
+    ${tc} =    Check Test Case    ${TEST NAME}
+    Should Be Equal    ${tc.body[0].body[0].type}      RETURN
+    Should Be Equal    ${tc.body[0].body[0].values}    ${{('Return value',)}}
+    Error in File    0    parsing/user_keyword_settings.robot    167
+    ...    The '[[]Return]' setting is deprecated. Use the 'RETURN' statement instead.    level=WARN
 
 Return using variables
-    Check Test Case    ${TEST NAME}
+    ${tc} =    Check Test Case    ${TEST NAME}
+    Should Be Equal    ${tc.body[0].body[1].type}      RETURN
+    Should Be Equal    ${tc.body[0].body[1].values}    ${{('\${ret}',)}}
+    Error in File    1    parsing/user_keyword_settings.robot    171
+    ...    The '[[]Return]' setting is deprecated. Use the 'RETURN' statement instead.    level=WARN
 
 Return multiple
-    Check Test Case    ${TEST NAME}
+    ${tc} =    Check Test Case    ${TEST NAME}
+    Should Be Equal    ${tc.body[0].body[1].type}      RETURN
+    Should Be Equal    ${tc.body[0].body[1].values}    ${{('\${arg1}', '+', '\${arg2}', '=', '\${result}')}}
+    Error in File    2    parsing/user_keyword_settings.robot    176
+    ...    The '[[]Return]' setting is deprecated. Use the 'RETURN' statement instead.    level=WARN
 
 Return with escaping
-    Check Test Case    ${TEST NAME}
+    ${tc} =    Check Test Case    ${TEST NAME}
+    Should Be Equal    ${tc.body[0].body[0].type}      RETURN
+    Should Be Equal    ${tc.body[0].body[0].values}    ${{('\\\${XXX}', 'c:\\\\temp', '\\', '\\\\')}}
+    Error in File    3    parsing/user_keyword_settings.robot    179
+    ...    The '[[]Return]' setting is deprecated. Use the 'RETURN' statement instead.    level=WARN
 
 Timeout
     Verify Timeout    2 minutes 3 seconds
-
-Timeout with message
-    Verify Timeout    2 minutes 3 seconds 456 milliseconds
 
 Timeout with variables
     Verify Timeout    1 day 4 hours 48 minutes
@@ -101,28 +109,19 @@ Multiple settings
     Verify Teardown   Teardown World
     Verify Timeout  6 minutes
 
-Deprecatted setting format
-    Check Test Case    Invalid setting
-    ${path} =    Normalize Path    ${DATADIR}/parsing/user_keyword_settings.robot
-    ${message} =    Catenate
-    ...    Error in file '${path}':
-    ...    Invalid syntax in keyword 'Invalid passing':
-    ...    Setting 'Doc U Ment ation' is deprecated. Use 'Documentation' instead.
-    Check Log Message    ${ERRORS}[2]    ${message}    WARN
-
 Invalid setting
     Check Test Case    ${TEST NAME}
-    ${path} =    Normalize Path    ${DATADIR}/parsing/user_keyword_settings.robot
-    ${message} =    Catenate
-    ...    Error in file '${path}':
-    ...    Invalid syntax in keyword 'Invalid passing':
-    ...    Non-existing setting 'Invalid Setting'.
-    Check Log Message    ${ERRORS}[3]    ${message}    ERROR
-    ${message} =    Catenate
-    ...    Error in file '${path}':
-    ...    Invalid syntax in keyword 'Invalid failing':
-    ...    Non-existing setting 'invalid'.
-    Check Log Message    ${ERRORS}[4]    ${message}    ERROR
+
+Setting not valid with user keywords
+    Check Test Case    ${TEST NAME}
+
+Small typo should provide recommendation
+    Check Test Case    ${TEST NAME}
+
+Invalid empty line continuation in arguments should throw an error
+    Error in File    4    parsing/user_keyword_settings.robot    214
+    ...    Creating keyword 'Invalid empty line continuation in arguments should throw an error' failed:
+    ...    Invalid argument specification: Invalid argument syntax ''.
 
 *** Keywords ***
 Verify Documentation
@@ -133,8 +132,8 @@ Verify Documentation
 Verify Teardown
     [Arguments]    ${message}
     ${tc} =    Check Test Case    ${TEST NAME}
-    Should Be Equal    ${tc.kws[0].kws[-1].name}    BuiltIn.Log
-    Check Log Message    ${tc.kws[0].kws[-1].msgs[0]}    ${message}
+    Should Be Equal    ${tc.kws[0].teardown.full_name}    BuiltIn.Log
+    Check Log Message    ${tc.kws[0].teardown.msgs[0]}    ${message}
 
 Verify Timeout
     [Arguments]    ${timeout}

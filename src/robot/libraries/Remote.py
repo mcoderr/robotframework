@@ -13,32 +13,22 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from __future__ import absolute_import
+from contextlib import contextmanager
 
-try:
-    import httplib
-    import xmlrpclib
-except ImportError:  # Py3
-    import http.client as httplib
-    import xmlrpc.client as xmlrpclib
+import http.client
 import re
 import socket
 import sys
-import time
-
-try:
-    from xml.parsers.expat import ExpatError
-except ImportError:   # No expat in IronPython 2.7
-    class ExpatError(Exception):
-        pass
+import xmlrpc.client
+from datetime import date, datetime, timedelta
+from xml.parsers.expat import ExpatError
 
 from robot.errors import RemoteError
-from robot.utils import (is_bytes, is_dict_like, is_list_like, is_number,
-                         is_string, timestr_to_secs, unic, DotDict,
-                         IRONPYTHON, JYTHON, PY2)
+from robot.utils import (DotDict, is_bytes, is_dict_like, is_list_like, is_number,
+                         is_string, safe_str, timestr_to_secs)
 
 
-class Remote(object):
+class Remote:
     ROBOT_LIBRARY_SCOPE = 'TEST SUITE'
 
     def __init__(self, uri='http://127.0.0.1:8270', timeout=None):
@@ -53,8 +43,6 @@ class Remote(object):
         the operating system and its configuration. Notice that setting
         a timeout that is shorter than keyword execution time will interrupt
         the keyword.
-
-        Timeouts do not work with IronPython.
         """
         if '://' not in uri:
             uri = 'http://' + uri
@@ -62,40 +50,49 @@ class Remote(object):
             timeout = timestr_to_secs(timeout)
         self._uri = uri
         self._client = XmlRpcRemoteClient(uri, timeout)
+        self._lib_info = None
+        self._lib_info_initialized = False
 
-    def get_keyword_names(self, attempts=2):
-        for i in range(attempts):
-            time.sleep(i)
+    def get_keyword_names(self):
+        if self._is_lib_info_available():
+            return [name for name in self._lib_info
+                    if not (name[:2] == '__' and name[-2:] == '__')]
+        try:
+            return self._client.get_keyword_names()
+        except TypeError as error:
+            raise RuntimeError(f'Connecting remote server at {self._uri} '
+                               f'failed: {error}')
+
+    def _is_lib_info_available(self):
+        if not self._lib_info_initialized:
             try:
-                return self._client.get_keyword_names()
-            except TypeError as err:
-                error = err
-        raise RuntimeError('Connecting remote server at %s failed: %s'
-                           % (self._uri, error))
+                self._lib_info = self._client.get_library_information()
+            except TypeError:
+                pass
+            self._lib_info_initialized = True
+        return self._lib_info is not None
 
     def get_keyword_arguments(self, name):
+        return self._get_kw_info(name, 'args', self._client.get_keyword_arguments,
+                                 default=['*args'])
+
+    def _get_kw_info(self, kw, info, getter, default=None):
+        if self._is_lib_info_available():
+            return self._lib_info[kw].get(info, default)
         try:
-            return self._client.get_keyword_arguments(name)
+            return getter(kw)
         except TypeError:
-            return ['*args']
+            return default
 
     def get_keyword_types(self, name):
-        try:
-            return self._client.get_keyword_types(name)
-        except TypeError:
-            return None
+        return self._get_kw_info(name, 'types', self._client.get_keyword_types,
+                                 default=())
 
     def get_keyword_tags(self, name):
-        try:
-            return self._client.get_keyword_tags(name)
-        except TypeError:
-            return None
+        return self._get_kw_info(name, 'tags', self._client.get_keyword_tags)
 
     def get_keyword_documentation(self, name):
-        try:
-            return self._client.get_keyword_documentation(name)
-        except TypeError:
-            return None
+        return self._get_kw_info(name, 'doc', self._client.get_keyword_documentation)
 
     def run_keyword(self, name, args, kwargs):
         coercer = ArgumentCoercer()
@@ -109,51 +106,55 @@ class Remote(object):
         return result.return_
 
 
-class ArgumentCoercer(object):
+class ArgumentCoercer:
     binary = re.compile('[\x00-\x08\x0B\x0C\x0E-\x1F]')
-    non_ascii = re.compile('[\x80-\xff]')
 
     def coerce(self, argument):
         for handles, handler in [(is_string, self._handle_string),
-                                 (is_bytes, self._handle_bytes),
-                                 (is_number, self._pass_through),
+                                 (self._no_conversion_needed, self._pass_through),
+                                 (self._is_date, self._handle_date),
+                                 (self._is_timedelta, self._handle_timedelta),
                                  (is_dict_like, self._coerce_dict),
-                                 (is_list_like, self._coerce_list),
-                                 (lambda arg: True, self._to_string)]:
+                                 (is_list_like, self._coerce_list)]:
             if handles(argument):
                 return handler(argument)
+        return self._to_string(argument)
+
+    def _no_conversion_needed(self, arg):
+        return is_number(arg) or is_bytes(arg) or isinstance(arg, datetime)
 
     def _handle_string(self, arg):
-        if self._string_contains_binary(arg):
+        if self.binary.search(arg):
             return self._handle_binary_in_string(arg)
         return arg
 
-    def _string_contains_binary(self, arg):
-        return (self.binary.search(arg) or
-                is_bytes(arg) and self.non_ascii.search(arg))
-
     def _handle_binary_in_string(self, arg):
         try:
-            if not is_bytes(arg):
-                arg = arg.encode('ASCII')
+            # Map Unicode code points to bytes directly
+            return arg.encode('latin-1')
         except UnicodeError:
-            raise ValueError('Cannot represent %r as binary.' % arg)
-        return xmlrpclib.Binary(arg)
-
-    def _handle_bytes(self, arg):
-        # http://bugs.jython.org/issue2429
-        if IRONPYTHON or JYTHON:
-            arg = str(arg)
-        return xmlrpclib.Binary(arg)
+            raise ValueError(f'Cannot represent {arg!r} as binary.')
 
     def _pass_through(self, arg):
         return arg
+
+    def _is_date(self, arg):
+        return isinstance(arg, date)
+
+    def _handle_date(self, arg):
+        return datetime(arg.year, arg.month, arg.day)
+
+    def _is_timedelta(self, arg):
+        return isinstance(arg, timedelta)
+
+    def _handle_timedelta(self, arg):
+        return arg.total_seconds()
 
     def _coerce_list(self, arg):
         return [self.coerce(item) for item in arg]
 
     def _coerce_dict(self, arg):
-        return dict((self._to_key(key), self.coerce(arg[key])) for key in arg)
+        return {self._to_key(key): self.coerce(arg[key]) for key in arg}
 
     def _to_key(self, item):
         item = self._to_string(item)
@@ -161,31 +162,24 @@ class ArgumentCoercer(object):
         return item
 
     def _to_string(self, item):
-        item = unic(item) if item is not None else ''
+        item = safe_str(item) if item is not None else ''
         return self._handle_string(item)
 
     def _validate_key(self, key):
-        if isinstance(key, xmlrpclib.Binary):
-            raise ValueError('Dictionary keys cannot be binary. Got %s%r.'
-                             % ('b' if PY2 else '', key.data))
-        if IRONPYTHON:
-            try:
-                key.encode('ASCII')
-            except UnicodeError:
-                raise ValueError('Dictionary keys cannot contain non-ASCII '
-                                 'characters on IronPython. Got %r.' % key)
+        if isinstance(key, bytes):
+            raise ValueError(f'Dictionary keys cannot be binary. Got {key!r}.')
 
 
-class RemoteResult(object):
+class RemoteResult:
 
     def __init__(self, result):
         if not (is_dict_like(result) and 'status' in result):
-            raise RuntimeError('Invalid remote result dictionary: %s' % result)
+            raise RuntimeError(f'Invalid remote result dictionary: {result!r}')
         self.status = result['status']
-        self.output = unic(self._get(result, 'output'))
+        self.output = safe_str(self._get(result, 'output'))
         self.return_ = self._get(result, 'return')
-        self.error = unic(self._get(result, 'error'))
-        self.traceback = unic(self._get(result, 'traceback'))
+        self.error = safe_str(self._get(result, 'error'))
+        self.traceback = safe_str(self._get(result, 'traceback'))
         self.fatal = bool(self._get(result, 'fatal', False))
         self.continuable = bool(self._get(result, 'continuable', False))
 
@@ -194,8 +188,6 @@ class RemoteResult(object):
         return self._convert(value)
 
     def _convert(self, value):
-        if isinstance(value, xmlrpclib.Binary):
-            return bytes(value.data)
         if is_dict_like(value):
             return DotDict((k, self._convert(v)) for k, v in value.items())
         if is_list_like(value):
@@ -203,73 +195,79 @@ class RemoteResult(object):
         return value
 
 
-class XmlRpcRemoteClient(object):
+class XmlRpcRemoteClient:
 
     def __init__(self, uri, timeout=None):
-        if uri.startswith('https://'):
-            transport = TimeoutHTTPSTransport(timeout=timeout)
+        self.uri = uri
+        self.timeout = timeout
+
+    @property
+    @contextmanager
+    def _server(self):
+        if self.uri.startswith('https://'):
+            transport = TimeoutHTTPSTransport(timeout=self.timeout)
         else:
-            transport = TimeoutHTTPTransport(timeout=timeout)
-        self._server = xmlrpclib.ServerProxy(uri, encoding='UTF-8',
-                                             transport=transport)
+            transport = TimeoutHTTPTransport(timeout=self.timeout)
+        server = xmlrpc.client.ServerProxy(self.uri, encoding='UTF-8',
+                                           use_builtin_types=True,
+                                           transport=transport)
+        try:
+            yield server
+        except (socket.error, xmlrpc.client.Error) as err:
+            raise TypeError(err)
+        finally:
+            server('close')()
+
+    def get_library_information(self):
+        with self._server as server:
+            return server.get_library_information()
 
     def get_keyword_names(self):
-        try:
-            return self._server.get_keyword_names()
-        except (socket.error, xmlrpclib.Error) as err:
-            raise TypeError(err)
+        with self._server as server:
+            return server.get_keyword_names()
 
     def get_keyword_arguments(self, name):
-        try:
-            return self._server.get_keyword_arguments(name)
-        except xmlrpclib.Error:
-            raise TypeError
+        with self._server as server:
+            return server.get_keyword_arguments(name)
 
     def get_keyword_types(self, name):
-        try:
-            return self._server.get_keyword_types(name)
-        except xmlrpclib.Error:
-            raise TypeError
+        with self._server as server:
+            return server.get_keyword_types(name)
 
     def get_keyword_tags(self, name):
-        try:
-            return self._server.get_keyword_tags(name)
-        except xmlrpclib.Error:
-            raise TypeError
+        with self._server as server:
+            return server.get_keyword_tags(name)
 
     def get_keyword_documentation(self, name):
-        try:
-            return self._server.get_keyword_documentation(name)
-        except xmlrpclib.Error:
-            raise TypeError
+        with self._server as server:
+            return server.get_keyword_documentation(name)
 
     def run_keyword(self, name, args, kwargs):
-        run_keyword_args = [name, args, kwargs] if kwargs else [name, args]
-        try:
-            return self._server.run_keyword(*run_keyword_args)
-        except xmlrpclib.Fault as err:
-            message = err.faultString
-        except socket.error as err:
-            message = 'Connection to remote server broken: %s' % err
-        except ExpatError as err:
-            message = ('Processing XML-RPC return value failed. '
-                       'Most often this happens when the return value '
-                       'contains characters that are not valid in XML. '
-                       'Original error was: ExpatError: %s' % err)
-        raise RuntimeError(message)
+        with self._server as server:
+            run_keyword_args = [name, args, kwargs] if kwargs else [name, args]
+            try:
+                return server.run_keyword(*run_keyword_args)
+            except xmlrpc.client.Fault as err:
+                message = err.faultString
+            except socket.error as err:
+                message = f'Connection to remote server broken: {err}'
+            except ExpatError as err:
+                message = (f'Processing XML-RPC return value failed. '
+                           f'Most often this happens when the return value '
+                           f'contains characters that are not valid in XML. '
+                           f'Original error was: ExpatError: {err}')
+            raise RuntimeError(message)
 
 
 # Custom XML-RPC timeouts based on
 # http://stackoverflow.com/questions/2425799/timeout-for-xmlrpclib-client-requests
 
-class TimeoutHTTPTransport(xmlrpclib.Transport):
-    _connection_class = httplib.HTTPConnection
+class TimeoutHTTPTransport(xmlrpc.client.Transport):
+    _connection_class = http.client.HTTPConnection
 
-    def __init__(self, use_datetime=0, timeout=None):
-        xmlrpclib.Transport.__init__(self, use_datetime)
-        if not timeout:
-            timeout = socket._GLOBAL_DEFAULT_TIMEOUT
-        self.timeout = timeout
+    def __init__(self, timeout=None):
+        super().__init__(use_builtin_types=True)
+        self.timeout = timeout or socket._GLOBAL_DEFAULT_TIMEOUT
 
     def make_connection(self, host):
         if self._connection and host == self._connection[0]:
@@ -279,15 +277,5 @@ class TimeoutHTTPTransport(xmlrpclib.Transport):
         return self._connection[1]
 
 
-if IRONPYTHON:
-
-    class TimeoutHTTPTransport(xmlrpclib.Transport):
-
-        def __init__(self, use_datetime=0, timeout=None):
-            xmlrpclib.Transport.__init__(self, use_datetime)
-            if timeout:
-                raise RuntimeError('Timeouts are not supported on IronPython.')
-
-
 class TimeoutHTTPSTransport(TimeoutHTTPTransport):
-    _connection_class = httplib.HTTPSConnection
+    _connection_class = http.client.HTTPSConnection

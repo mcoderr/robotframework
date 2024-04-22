@@ -1,6 +1,10 @@
 *** Settings ***
+Documentation     Testing Run Keywords when used without AND. Tests with AND are in
+...               run_keywords_with_arguments.robot.
 Suite Setup       Run keywords    Passing    ${NOOP}
 Suite Teardown    Run keywords    Failing    Passing    Fail
+Library           embedded_args.py
+Variables         variable.py
 
 *** Variables ***
 ${NOOP}           No Operation
@@ -23,6 +27,18 @@ Failing keyword
     [Documentation]    FAIL Expected error message${ATD ERR}
     Run keywords    Passing    Failing    Not Executed
 
+Embedded arguments
+    [Documentation]    FAIL ${TD ERR}
+    Run keywords    Embedded "arg"    Embedded "${1}"    Embedded object "${OBJECT}"
+
+Embedded arguments with library keywords
+    [Documentation]    FAIL ${TD ERR}
+    Run keywords    Embedded "arg" in library    Embedded "${1}" in library    Embedded object "${OBJECT}" in library
+
+Keywords names needing escaping
+    [Documentation]    FAIL ${TD ERR}
+    Run keywords    Needs \\escaping \\\${notvar}
+
 Continuable failures
     [Documentation]    FAIL Several failures occurred:
     ...
@@ -43,9 +59,14 @@ Keywords as variables
     [Documentation]    FAIL Expected error message${ATD ERR}
     Run keywords    ${NOOP}    ${PASSING}    @{KEYWORDS}    ${FAILING}
 
+Keywords names needing escaping as variable
+    [Documentation]    FAIL ${TD ERR}
+    @{names} =    Create List    Needs \\escaping \\\${notvar}
+    Run keywords    @{names}    ${names}[0]
+
 Non-existing variable as keyword name
     [Documentation]    FAIL Variable '\${NONEXISTING}' not found.${ATD ERR}
-    Run keywords    Not Executed    ${NONEXISTING}    Not Executed
+    Run keywords    Passing    ${NONEXISTING}    Not Executed
 
 Non-existing variable inside executed keyword
     [Documentation]    FAIL Variable '\${this variable does not exist}' not found.${ATD ERR}
@@ -56,7 +77,7 @@ Non-existing keyword
     Run keywords    Passing    Non-Existing    Non-Existing But Not Executed
 
 Wrong number of arguments to keyword
-    [Documentation]    FAIL Keyword 'BuiltIn.Log' expected 1 to 5 arguments, got 0.${ATD ERR}
+    [Documentation]    FAIL Keyword 'BuiltIn.Log' expected 1 to 6 arguments, got 0.${ATD ERR}
     Run keywords    Passing    Log    This isn't argument to Log keyword
 
 In test setup
@@ -78,11 +99,30 @@ In test teardown
     ...
     ...    4) No keyword with name 'Non-Existing Keyword' found.
     ...
-    ...    5) Keyword name cannot be empty.${ATD ERR}
+    ...    5) IF must have closing END.${ATD ERR}
     No Operation
     [Teardown]    Run keywords    Passing    ${NOOP}    Failing    ${NOOP}
     ...    Non-existing Variable    Fail    Non-Existing Keyword
     ...    Syntax Error    Not Executed After Previous Syntax Error
+
+In test teardown with non-existing variable in keyword name
+    [Documentation]
+    ...    FAIL Teardown failed:
+    ...    Several failures occurred:
+    ...
+    ...    1) No keyword with name '\${bad}' found.
+    ...
+    ...    2) AssertionError
+    ...
+    ...    3) Variable '\${bad}' not found.
+    ...
+    ...    4) AssertionError${ATD ERR}
+    No Operation
+    [Teardown]    Run keywords
+    ...    ${bad}
+    ...    ${{'Fail'}}
+    ...    Embedded "${bad}"
+    ...    Fail
 
 In test teardown with ExecutionPassed exception
     [Documentation]    FAIL Stop here${ATD ERR}
@@ -125,4 +165,15 @@ Non-existing Variable
     Log    ${this variable does not exist}
 
 Syntax Error
-    ${invalid}
+    IF    True
+        Not executed
+
+Embedded "${arg}"
+    Log    ${arg}
+
+Embedded object "${obj}"
+    Log    ${obj}
+    Should Be Equal    ${obj.name}    Robot
+
+Needs \escaping \${notvar}
+    No operation

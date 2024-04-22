@@ -1,12 +1,14 @@
-*** Setting ***
+*** Settings ***
 Suite Setup       My Suite Setup
 
-*** Variable ***
+*** Variables ***
 @{LIST}           Hello    world
 ${SCALAR}         Hi tellus
 &{DICT}           key=value    two=${2}
+${ITERABLE}       ${{(item for item in 'Should not be consumed!'.split())}}
+${ENDLESS}        ${{itertools.repeat('RF')}}
 
-*** Test Case ***
+*** Test Cases ***
 Previous Test
     No Operation
 
@@ -18,9 +20,15 @@ Log Variables
     @{int_list_2} =    Evaluate    [0, 1, 2, 3]
     Log Variables    debug
     Log Variables In UK
+    Should Be Equal    ${{' '.join($ITERABLE)}}    Should not be consumed!
     [Teardown]    Set Log Level    INFO
 
-*** Keyword ***
+List and dict variables failing during iteration
+    Import Variables    ${CURDIR}/broken_containers.py
+    Log Variables
+    Log Many    ${BROKEN ITERABLE}    ${BROKEN SEQUENCE}    ${BROKEN MAPPING}
+
+*** Keywords ***
 My Suite Setup
     ${suite_setup_local_var} =    Set Variable    Variable available only locally in suite setup
     Set Suite Variable    $suite_setup_suite_var    Suite var set in suite setup

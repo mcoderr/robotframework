@@ -1,21 +1,23 @@
-*** Setting ***
+*** Settings ***
 Suite Setup       Remove Environment Variable    ${NAME}
 Test Teardown     Remove Environment Variable    ${NAME}
 Library           OperatingSystem
 Library           files/HelperLib.py
 
-*** Variable ***
+*** Variables ***
 ${NAME}           EXAMPLE_ENV_VAR_32FDHT
 ${NON STRING}     ${2138791}
 ${NON ASCII}      HYVÄÄ_YÖTÄ
 
-*** Test Case ***
+*** Test Cases ***
 Get Environment Variable
     [Documentation]    FAIL Environment variable 'non_existing_2' does not exist.
     ${var} =    Get Environment Variable    PATH
     Should Contain    ${var}    ${:}
     ${var} =    Get Environment Variable    non_existing    default value
     Should Be Equal    ${var}    default value
+    ${var} =    Get Environment Variable    non_existing    none
+    Should Be Equal    ${var}    none
     ${var} =    Get Environment Variable    non_existing_2
 
 Set Environment Variable

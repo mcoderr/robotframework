@@ -1,7 +1,7 @@
 from listenerlibrary import listenerlibrary
 
 
-class multiple_listenerlibrary(object):
+class multiple_listenerlibrary:
 
     def __init__(self, fail=False):
         self.instances = [
@@ -9,10 +9,11 @@ class multiple_listenerlibrary(object):
             listenerlibrary(),
         ]
         if fail:
-            class NoVersionListener(object):
+            class BadVersionListener:
+                ROBOT_LISTENER_API_VERSION = 666
                 def events_should_be_empty(self):
                     pass
-            self.instances.append(NoVersionListener())
+            self.instances.append(BadVersionListener())
         self.ROBOT_LIBRARY_LISTENER = self.instances
 
     def events_should_be(self, *expected):

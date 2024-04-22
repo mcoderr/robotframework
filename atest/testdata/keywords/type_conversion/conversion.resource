@@ -1,20 +1,23 @@
+*** Variables ***
+${CUSTOM}         ${{type('Custom', (), {})()}}
+
 *** Keywords ***
 Conversion Should Fail
-    [Arguments]    ${kw}    @{args}    ${error}=    ${type}=${kw.lower()}    &{kwargs}
-    ${arg} =    Evaluate    (list($args) + list($kwargs.values()))[0].replace('[', '?')
-    ${end} =    Set Variable If    $error    : ${error}    .
-    Run Keyword And Expect Error
-    ...    ValueError: Argument 'argument' got value '${arg}' that cannot be converted to ${type}${end}
-    ...    ${kw}    @{args}    &{kwargs}
-
-Non-string is not converted
-    [Arguments]    ${kw}
-    Run Keyword    ${kw}    ${1}       ${1}
-    Run Keyword    ${kw}    ${1.5}     ${1.5}
-    Run Keyword    ${kw}    ${True}    ${True}
-    Run Keyword    ${kw}    ${None}    ${None}
-    Run Keyword    ${kw}    ${LIST}    ${LIST}
-    Run Keyword    ${kw}    ${DICT}    ${DICT}
+    [Arguments]    ${kw}    @{args}    ${error}=    ${type}=${kw.lower()}    ${arg_type}=    &{kwargs}
+    ${arg} =    Evaluate    (list($args) + list($kwargs.values()))[0]
+    ${message} =    Catenate
+    ...     ValueError:
+    ...     Argument 'argument' got value '${arg}'${{" (${arg_type})" if $arg_type else ""}}
+    ...     that cannot be converted to ${type}${{": ${error}" if $error else "."}}
+    TRY
+        Run Keyword    ${kw}    @{args}    &{kwargs}
+    EXCEPT    ${message}    type=${{'GLOB' if '*' in $error else 'LITERAL'}}
+        No Operation
+    EXCEPT    AS    ${err}
+        Fail    Expected error\n\n \ ${message}\n\nbut got\n\n \ ${err}
+    ELSE
+        Fail    Expected error '${message}' did not occur.
+    END
 
 String None is converted to None object
     [Arguments]    ${kw}

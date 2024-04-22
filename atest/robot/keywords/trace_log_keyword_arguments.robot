@@ -2,13 +2,6 @@
 Suite Setup       Run Tests    --loglevel TRACE    keywords/trace_log_keyword_arguments.robot
 Resource          atest_resource.robot
 
-*** Variables ***
-${NON ASCII PY 2}      "Hyv\\xe4\\xe4 'P\\xe4iv\\xe4\\xe4'\\n"
-${NON ASCII PY 3}      "Hyvää 'Päivää'\\n"
-${OBJECT REPR PY 2}    u'Circle is 360\\xb0, Hyv\\xe4\\xe4 \\xfc\\xf6t\\xe4,
-...               \\u0989\\u09c4 \\u09f0 \\u09fa \\u099f \\u09eb \\u09ea \\u09b9'
-${OBJECT REPR PY 3}    'Circle is 360°, Hyvää üötä, \u0989\u09c4 \u09f0 \u09fa \u099f \u09eb \u09ea \u09b9'
-
 *** Test Cases ***
 Only Mandatory Arguments
     Check Argument Value Trace
@@ -67,33 +60,36 @@ None as Argument
     Check UKW Default, LKW Default, UKW Varargs, and LKW Varargs    None
 
 Non Ascii String as Argument
-    ${expected} =    Set variable if   ${INTERPRETER.is_py2}
-    ...    ${NON ASCII PY 2}    ${NON ASCII PY 3}
-    Check UKW Default, LKW Default, UKW Varargs, and LKW Varargs    ${expected}
+    Check UKW Default, LKW Default, UKW Varargs, and LKW Varargs    "Hyvää 'Päivää'\\n"
 
 Object With Unicode Repr as Argument
-    ${expected} =    Set variable if   ${INTERPRETER.is_py2}
-    ...    ${OBJECT REPR PY 2}    ${OBJECT REPR PY 3}
-    Check UKW Default, LKW Default, UKW Varargs, and LKW Varargs    ${expected}
+    Check UKW Default, LKW Default, UKW Varargs, and LKW Varargs
+    ...    'Circle is 360°, Hyvää üötä, \u0989\u09c4 \u09f0 \u09fa \u099f \u09eb \u09ea \u09b9'
 
 Arguments With Run Keyword
     ${tc}=    Check Test Case    ${TEST NAME}
-    Check Log Message    ${tc.kws[1].msgs[0]}    Arguments: [ 'Catenate' | '\@{VALUES}' ]    TRACE
+    Check Log Message    ${tc.kws[1].msgs[0]}    Arguments: [ '\${keyword name}' | '\@{VALUES}' ]    TRACE
     Check Log Message    ${tc.kws[1].kws[0].msgs[0]}    Arguments: [ 'a' | 'b' | 'c' | 'd' ]    TRACE
 
 Embedded Arguments
     ${tc}=    Check Test Case    ${TEST NAME}
     Check Log Message    ${tc.kws[0].msgs[0]}    Arguments: [ \${first}='foo' | \${second}=42 | \${what}='UK' ]    TRACE
-    Check Log Message    ${tc.kws[1].msgs[0]}    Arguments: [ 'bar' | 'Embedded Arguments' ]    TRACE
+    Check Log Message    ${tc.kws[1].msgs[0]}    Arguments: [ 'bar' | 'Embedded Arguments' ]                       TRACE
+    Check Log Message    ${tc.kws[2].msgs[0]}    Arguments: [ \${embedded}='embedded' | \${normal}='argument' ]    TRACE
+    Check Log Message    ${tc.kws[3].msgs[0]}    Arguments: [ \${embedded}='embedded' | \${normal}='argument' ]    TRACE
+    FOR    ${kw}    IN    @{tc.kws}
+        Check Log Message    ${kw.msgs[-1]}    Return: None    TRACE
+        Length Should Be     ${kw.msgs}    2
+    END
 
 *** Keywords ***
 Check Argument Value Trace
     [Arguments]    @{expected}
     ${tc} =    Check Test Case    ${TEST NAME}
     ${length} =    Get Length    ${expected}
-    : FOR    ${index}    IN RANGE    0    ${length}
-    \    Check Log Message    ${tc.kws[${index}].msgs[0]}
-    ...    Arguments: [ @{expected}[${index}] ]    TRACE
+    FOR    ${index}    IN RANGE    0    ${length}
+        Check Log Message    ${tc.kws[${index}].msgs[0]}    Arguments: [ ${expected}[${index}] ]    TRACE
+    END
 
 Check UKW Default, LKW Default, UKW Varargs, and LKW Varargs
     [Arguments]    ${value}

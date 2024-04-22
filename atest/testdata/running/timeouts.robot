@@ -3,7 +3,6 @@ Documentation     Tests using test case and user keyword timeouts.
 Suite Setup       Clean Up Timeout Temp
 Test Timeout      1 second
 Library           ExampleLibrary
-Library           ExampleJavaLibrary
 Library           OperatingSystem
 
 *** Variables ***
@@ -28,10 +27,6 @@ Show Correct Trace Back When Failing Before Timeout
     [Documentation]    FAIL Failure before timeout
     Exception    RuntimeError    Failure before timeout
 
-Show Correct Trace Back When Failing In Java Before Timeout
-    [Documentation]    FAIL ArrayStoreException: This is exception message
-    java exception    This is exception message
-
 Sleeping And Timeouting
     [Documentation]    FAIL Test timeout 1 second exceeded.
     Sleep Without Logging    5
@@ -55,16 +50,19 @@ Total Time Too Long 2
 Total Time Too Long 3
     [Documentation]    FAIL Test timeout 100 milliseconds exceeded.
     [Timeout]    0.1
-    :FOR    ${i}    IN RANGE    1000
-    \    Log    How many kws can we run in 0.1s?
+    FOR    ${i}    IN RANGE    1000
+        Log    How many kws can we run in 0.1s?
+    END
     Fail    This should not be executed
 
 Total Time Too Long 4
     [Documentation]    FAIL Test timeout 100 milliseconds exceeded.
     [Timeout]    0.1
-    :FOR    ${i}    IN RANGE    1000
-    \    Run Keyword And Expect Error    How many kws can we run in 0.1s?
-    ...    Fail    How many kws can we run in 0.1s?
+    FOR    ${i}    IN RANGE    1000
+        Run Keyword And Expect Error
+        ...    How many kws can we run in 0.1s?
+        ...    Fail    How many kws can we run in 0.1s?
+    END
     Fail    This should not be executed
 
 Looping Forever And Timeouting
@@ -231,9 +229,6 @@ Keyword Timeout Should Not Be Active For Run Keyword Variants But To Keywords Th
     [Documentation]    FAIL Keyword timeout 200 milliseconds exceeded.
     Run Keyword With Timeout
 
-It Should Be Possible To Print From Java Libraries When Test Timeout Has Been Set
-    ExampleJavaLibrary.Print    My message from java lib
-
 Timeouted Keyword Called With Wrong Number of Arguments
     [Documentation]    FAIL Keyword 'Timeouted Keyword Passes' expected 0 to 1 arguments, got 4.
     Timeouted Keyword Passes    wrong    number    of    arguments
@@ -243,6 +238,23 @@ Timeouted Keyword Called With Wrong Number of Arguments with Run Keyword
     [Documentation]    FAIL Keyword 'Timeouted Keyword Passes' expected 0 to 1 arguments, got 4.
     Run Keyword    Timeouted Keyword Passes    wrong    number    of    arguments
     [Teardown]    No Operation
+
+Zero timeout is ignored
+    [Timeout]    0
+    Zero timeout is ignored
+
+Negative timeout is ignored
+    [Timeout]    -1
+    Negative timeout is ignored
+
+Invalid test timeout
+    [Documentation]    FAIL Setting test timeout failed: Invalid time string '¡Bäng!'.
+    [Timeout]    ¡Bäng!
+    Fail    Should not be executed!
+
+Invalid keyword timeout
+    [Documentation]    FAIL Setting keyword timeout failed: Invalid time string '¡Bäng!'.
+    Invalid keyword timeout
 
 *** Keywords ***
 Clean Up Timeout Temp
@@ -254,7 +266,7 @@ Timeouted Keyword Passes
     [Timeout]    5 seconds
     Log    Testing logging in timeouted keyword
     Sleep Without Logging    ${secs}
-    [Return]    Slept ${secs}s
+    RETURN    Slept ${secs}s
 
 Timeouted Keyword Fails Before Timeout
     [Timeout]    9000
@@ -263,7 +275,7 @@ Timeouted Keyword Fails Before Timeout
 Timeouted Keyword Timeouts
     [Timeout]    99 milliseconds
     Sleep Without Logging    2
-    [Return]    Nothing, really
+    RETURN    Nothing, really
 
 Timeouted Keyword Timeouts Due To Total Time
     [Timeout]    0.3 seconds
@@ -324,3 +336,15 @@ Embedded args timeout '${timeout}' from arguments
 Keyword that uses parent local variable for timeout
     [Timeout]    ${local}
     Sleep    0.1
+
+Zero timeout is ignored
+    [Timeout]    0
+    Sleep    0.1
+
+Negative timeout is ignored
+    [Timeout]    -1
+    Sleep    0.1
+
+Invalid keyword timeout
+    [Timeout]    ¡Bäng!
+    No Operation

@@ -1,9 +1,15 @@
 from collections import abc
 from datetime import datetime, date, timedelta
 from decimal import Decimal
-from enum import Enum
+from enum import Flag, Enum, IntFlag, IntEnum
 from functools import wraps
 from numbers import Integral, Real
+from os import PathLike
+from pathlib import Path, PurePath
+
+# Needed by `eval()` in `_validate_type()`.
+import collections
+from fractions import Fraction
 
 from robot.api.deco import keyword
 
@@ -11,9 +17,33 @@ from robot.api.deco import keyword
 class MyEnum(Enum):
     FOO = 1
     bar = 'xxx'
+    foo = 'yyy'
+    normalize_me = True
 
 
-class Unknown(object):
+class NoneEnum(Enum):
+    NONE = 1
+    NTWO = 2
+    NTHREE = 3
+
+
+class MyFlag(Flag):
+    RED = 1
+    BLUE = 2
+
+
+class MyIntEnum(IntEnum):
+    ON = 1
+    OFF = 0
+
+
+class MyIntFlag(IntFlag):
+    R = 4
+    W = 2
+    X = 1
+
+
+class Unknown:
     pass
 
 
@@ -49,11 +79,11 @@ def bytes_(argument: bytes, expected=None):
     _validate_type(argument, expected)
 
 
-def bytestring(argument: abc.ByteString, expected=None):
+def bytearray_(argument: bytearray, expected=None):
     _validate_type(argument, expected)
 
 
-def bytearray_(argument: bytearray, expected=None):
+def bytestring_replacement(argument: 'bytes | bytearray', expected=None):
     _validate_type(argument, expected)
 
 
@@ -69,7 +99,35 @@ def timedelta_(argument: timedelta, expected=None):
     _validate_type(argument, expected)
 
 
+def path(argument: Path, expected=None):
+    _validate_type(argument, expected)
+
+
+def pure_path(argument: PurePath, expected=None):
+    _validate_type(argument, expected)
+
+
+def path_like(argument: PathLike, expected=None):
+    _validate_type(argument, expected)
+
+
 def enum_(argument: MyEnum, expected=None):
+    _validate_type(argument, expected)
+
+
+def none_enum(argument: NoneEnum, expected=None):
+    _validate_type(argument, expected)
+
+
+def flag(argument: MyFlag, expected=None):
+    _validate_type(argument, expected)
+
+
+def int_enum(argument: MyIntEnum, expected=None):
+    _validate_type(argument, expected)
+
+
+def int_flag(argument: MyIntFlag, expected=None):
     _validate_type(argument, expected)
 
 
@@ -125,7 +183,11 @@ def unknown(argument: Unknown, expected=None):
     _validate_type(argument, expected)
 
 
-def non_type(argument: 'this is string, not type', expected=None):
+def non_type(argument: 'this is just a random string', expected=None):
+    _validate_type(argument, expected)
+
+
+def unhashable(argument: {}, expected=None):
     _validate_type(argument, expected)
 
 
@@ -147,6 +209,10 @@ def kwonly(*, argument: float, expected=None):
 
 
 def none_as_default(argument: list = None, expected=None):
+    _validate_type(argument, expected)
+
+
+def none_as_default_with_unknown_type(argument: Unknown = None, expected=None):
     _validate_type(argument, expected)
 
 
@@ -202,7 +268,23 @@ def mismatch_caused_by_decorator(argument: int, expected=None):
 
 
 @decorator_with_wraps
-def mismatch_caused_by_decorator_with_wraps(argument: int, expected=None):
+def keyword_with_wraps(argument: int, expected=None):
+    _validate_type(argument, expected)
+
+
+def type_and_default_1(argument: list = None, expected=None):
+    _validate_type(argument, expected)
+
+
+def type_and_default_2(argument: int = True, expected=None):
+    _validate_type(argument, expected)
+
+
+def type_and_default_3(argument: timedelta = 0, expected=None):
+    _validate_type(argument, expected)
+
+
+def type_and_default_4(argument: list = [], expected=None):
     _validate_type(argument, expected)
 
 

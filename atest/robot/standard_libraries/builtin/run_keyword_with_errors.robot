@@ -28,7 +28,8 @@ Ignore Error With User Keyword When Keyword Fails
     ${tc} =    Check Test Case    ${TEST NAME}
     Check Log Message    ${tc.kws[0].kws[0].kws[0].kws[0].msgs[0]}    Hello world
     Check Log Message    ${tc.kws[0].kws[0].kws[1].msgs[0]}    Expected failure in UK    FAIL
-    Should Be Equal As Integers    ${tc.kws[0].kws[0].keyword_count}    2
+    Length Should Be     ${tc.kws[0].kws[0].kws}    3
+    Should Be Equal      ${tc.kws[0].kws[0].kws[-1].status}    NOT RUN
 
 Ignore Error With Arguments That Needs To Be Escaped
     Check Test Case    ${TEST NAME}
@@ -40,10 +41,10 @@ Ignore Error When Timeout Occurs
 Ignore Error When Timeout Occurs In UK
     Check Test Case    ${TEST NAME}
 
-Ignore Error When Syntax Error At Parsing Time
+Ignore Error Cannot Catch Syntax Errors
     Check Test Case    ${TEST NAME}
 
-Ignore Error When Syntax Error At Run Time
+Ignore Error Can Catch Non-Syntax Errors
     Check Test Case    ${TEST NAME}
 
 Ignore Error When Syntax Error In Setting Variables
@@ -103,7 +104,8 @@ Expect Error With User Keyword When Keyword Fails
     ${tc} =    Check Test Case    ${TEST NAME}
     Check Log Message    ${tc.kws[0].kws[0].kws[0].kws[0].msgs[0]}    Hello world
     Check Log Message    ${tc.kws[0].kws[0].kws[1].msgs[0]}    Expected failure in UK    FAIL
-    Should Be Equal As Integers    ${tc.kws[0].kws[0].keyword_count}    2
+    Length Should Be     ${tc.kws[0].kws[0].kws}    3
+    Should Be Equal      ${tc.kws[0].kws[0].kws[-1].status}    NOT RUN
 
 Expect Error With Arguments That Needs To Be Escaped
     ${tc} =    Check Test Case    ${TEST NAME}
@@ -117,10 +119,10 @@ Expect Error When Timeout Occurs
 Expect Error When Timeout Occurs In UK
     Check Test Case    ${TEST NAME}
 
-Expect Error When Syntax Error At Parsing Time
+Expect Error Cannot Catch Syntax Errors
     Check Test Case    ${TEST NAME}
 
-Expect Error When Syntax Error At Run Time
+Expect Error Can Catch Non-Syntax Errors
     Check Test Case    ${TEST NAME}
 
 Expect Error When Syntax Error In Setting Variables
@@ -156,6 +158,9 @@ Expect Error With STARTS
     Check Test Case    ${TEST NAME}
 
 Expect Error With REGEXP
+    Check Test Case    ${TEST NAME}
+
+Expect Error With REGEXP requires full match
     Check Test Case    ${TEST NAME}
 
 Expect Error With Unrecognized Prefix

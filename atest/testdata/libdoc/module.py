@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """Module test library."""
 
 from robot.api import deco
@@ -25,11 +23,23 @@ def get_hello():
     return 'foo'
 
 
+def non_string_defaults(a=1, b=True, c=(1, 2, None)):
+    pass
+
+
+def non_ascii_string_defaults(arg='hyvä'):
+    pass
+
+
+def non_ascii_bytes_defaults(arg=b'hyv\xe4'):
+    pass
+
+
 def multiline_doc_with_split_short_doc():
     """This is short doc.
     It can span multiple
     physical
-    lines.
+    lines and contain *formatting*.
 
     This is body. It can naturally also
     contain multiple lines.
@@ -39,18 +49,14 @@ def multiline_doc_with_split_short_doc():
 
 
 def non_ascii_doc():
-    u"""Hyv\u00E4\u00E4 y\u00F6t\u00E4.
+    """Hyvää yötä.
 
-    \u0421\u043F\u0430\u0441\u0438\u0431\u043E!
+    Спасибо!
     """
 
 
-def non_ascii_doc_with_bytes():
+def non_ascii_doc_with_escapes():
     """Hyv\xE4\xE4 y\xF6t\xE4."""
-
-
-def non_ascii_doc_with_declared_utf_8():
-    """Hyvää yötä."""
 
 
 @deco.keyword('Set Name Using Robot Name Attribute')
@@ -62,8 +68,20 @@ def name_set_in_method_signature(a, b, *args, **kwargs):
 
 
 @deco.keyword('Takes ${embedded} ${args}')
-def takes_embedded_args(a=1, b=2, c=3):
+def takes_embedded_args(a=1, b=2):
     """A keyword which uses embedded args."""
+    pass
+
+
+@deco.keyword('Takes ${embedded} and normal args')
+def takes_embedded_and_normal(embedded, mandatory, optional=None):
+    """A keyword which uses embedded and normal args."""
+    pass
+
+
+@deco.keyword('Takes ${embedded} and positional-only args')
+def takes_embedded_and_pos_only(embedded, mandatory, /, optional=None):
+    """A keyword which uses embedded, positional-only and normal args."""
     pass
 
 
@@ -82,3 +100,6 @@ def keyword_with_tags_3():
 
     Tags: tag1, tag2
     """
+
+def robot_espacers(arg=" robot  escapers\n\t\r  "):
+    pass

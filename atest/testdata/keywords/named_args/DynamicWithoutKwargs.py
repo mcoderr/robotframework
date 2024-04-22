@@ -1,20 +1,17 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 from helper import pretty
 
 
 KEYWORDS = {
     'One Arg': ['arg'],
     'Two Args': ['first', 'second'],
-    'Four Args': ['a=1', 'b=2', 'c=3', 'd=4'],
+    'Four Args': ['a=1', ('b', '2'), ('c', 3), ('d', 4)],
     'Defaults w/ Specials': ['a=${notvar}', 'b=\n', 'c=\\n', 'd=\\'],
     'Args & Varargs': ['a', 'b=default', '*varargs'],
-    u'Nön-ÄSCII names': [u'nönäscii', u'官话'],
+    'Nön-ÄSCII names': ['nönäscii', '官话'],
 }
 
 
-class DynamicWithoutKwargs(object):
+class DynamicWithoutKwargs:
 
     def __init__(self, **extra):
         self.keywords = dict(KEYWORDS, **extra)

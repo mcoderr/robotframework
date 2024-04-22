@@ -1,9 +1,5 @@
 import unittest
-try:
-    from StringIO import StringIO
-    from io import BytesIO
-except ImportError:
-    from io import BytesIO, StringIO
+from io import BytesIO, StringIO
 
 from robot.result import ExecutionResult
 from robot.reporting.outputwriter import OutputWriter
@@ -24,7 +20,7 @@ class StreamXmlWriter(XmlWriter):
 
 class TestableOutputWriter(OutputWriter):
 
-    def _get_writer(self, output, rpa, generator):
+    def _get_writer(self, output, rpa, generator, suite_only):
         writer = StreamXmlWriter(output, write_empty=False)
         writer.start('robot')
         return writer

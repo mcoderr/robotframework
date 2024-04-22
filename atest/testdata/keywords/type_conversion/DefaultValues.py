@@ -1,12 +1,9 @@
-try:
-    from enum import Enum
-except ImportError:    # Python < 3.4, unless installed separately
-    Enum = object
+from enum import Flag, Enum, IntFlag, IntEnum
 from datetime import datetime, date, timedelta
 from decimal import Decimal
+from pathlib import Path, PurePath    # Path needed by `eval()` in `_validate_type()`.
 
 from robot.api.deco import keyword
-from robot.utils import unicode
 
 
 class MyEnum(Enum):
@@ -14,7 +11,23 @@ class MyEnum(Enum):
     bar = 'xxx'
 
 
-class Unknown(object):
+class MyFlag(Flag):
+    RED = 1
+    BLUE = 2
+
+
+class MyIntEnum(IntEnum):
+    ON = 1
+    OFF = 0
+
+
+class MyIntFlag(IntFlag):
+    R = 4
+    W = 2
+    X = 1
+
+
+class Unknown:
     pass
 
 
@@ -38,10 +51,6 @@ def string(argument='', expected=None):
     _validate_type(argument, expected)
 
 
-def unicode_(argument=u'', expected=None):
-    _validate_type(argument, expected)
-
-
 def bytes_(argument=b'', expected=None):
     _validate_type(argument, expected)
 
@@ -62,7 +71,27 @@ def timedelta_(argument=timedelta(), expected=None):
     _validate_type(argument, expected)
 
 
+def path(argument=Path(), expected=None):
+    _validate_type(argument, expected)
+
+
+def pure_path(argument=PurePath(), expected=None):
+    _validate_type(argument, expected)
+
+
 def enum(argument=MyEnum.FOO, expected=None):
+    _validate_type(argument, expected)
+
+
+def flag(argument=MyFlag.RED, expected=None):
+    _validate_type(argument, expected)
+
+
+def int_enum(argument=MyIntEnum.ON, expected=None):
+    _validate_type(argument, expected)
+
+
+def int_flag(argument=MyIntFlag.X, expected=None):
     _validate_type(argument, expected)
 
 
@@ -94,13 +123,8 @@ def unknown(argument=Unknown(), expected=None):
     _validate_type(argument, expected)
 
 
-try:
-    exec('''
 def kwonly(*, argument=0.0, expected=None):
     _validate_type(argument, expected)
-''')
-except SyntaxError:
-    pass
 
 
 @keyword(types={'argument': timedelta})
@@ -124,7 +148,7 @@ def keyword_deco_alone_does_not_override(argument=0, expected=None):
 
 
 def _validate_type(argument, expected):
-    if isinstance(expected, unicode):
+    if isinstance(expected, str):
         expected = eval(expected)
     if argument != expected or type(argument) != type(expected):
         raise AssertionError('%r (%s) != %r (%s)'

@@ -14,27 +14,29 @@
 #  limitations under the License.
 
 import re
+from datetime import datetime
 
-from robot.utils import format_time
-
-from .loggerhelper import Message
+from .loggerhelper import Message, write_to_console
 
 
-class StdoutLogSplitter(object):
+class StdoutLogSplitter:
     """Splits messages logged through stdout (or stderr) into Message objects"""
 
-    _split_from_levels = re.compile('^(?:\*'
-                                    '(TRACE|DEBUG|INFO|HTML|WARN|ERROR)'
-                                    '(:\d+(?:\.\d+)?)?'  # Optional timestamp
-                                    '\*)', re.MULTILINE)
+    _split_from_levels = re.compile(r'^(?:\*'
+                                    r'(TRACE|DEBUG|INFO|CONSOLE|HTML|WARN|ERROR)'
+                                    r'(:\d+(?:\.\d+)?)?'  # Optional timestamp
+                                    r'\*)', re.MULTILINE)
 
     def __init__(self, output):
         self._messages = list(self._get_messages(output.strip()))
 
     def _get_messages(self, output):
         for level, timestamp, msg in self._split_output(output):
+            if level == 'CONSOLE':
+                write_to_console(msg.lstrip())
+                level = 'INFO'
             if timestamp:
-                timestamp = self._format_timestamp(timestamp[1:])
+                timestamp = datetime.fromtimestamp(float(timestamp[1:]) / 1000)
             yield Message(msg.strip(), level, timestamp=timestamp)
 
     def _split_output(self, output):
@@ -51,8 +53,11 @@ class StdoutLogSplitter(object):
     def _output_started_with_level(self, tokens):
         return tokens[0] == ''
 
-    def _format_timestamp(self, millis):
-        return format_time(float(millis)/1000, millissep='.')
-
     def __iter__(self):
         return iter(self._messages)
+
+    def __len__(self):
+        return len(self._messages)
+
+    def __getitem__(self, item):
+        return self._messages[item]

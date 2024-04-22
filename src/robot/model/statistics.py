@@ -19,7 +19,7 @@ from .tagstatistics import TagStatisticsBuilder
 from .visitor import SuiteVisitor
 
 
-class Statistics(object):
+class Statistics:
     """Container for total, suite and tag statistics.
 
     Accepted parameters have the same semantics as the matching command line
@@ -30,7 +30,7 @@ class Statistics(object):
                  tag_stat_link=None, rpa=False):
         total_builder = TotalStatisticsBuilder(rpa=rpa)
         suite_builder = SuiteStatisticsBuilder(suite_stat_level)
-        tag_builder = TagStatisticsBuilder(suite.criticality, tag_stat_include,
+        tag_builder = TagStatisticsBuilder(tag_stat_include,
                                            tag_stat_exclude, tag_stat_combine,
                                            tag_doc, tag_stat_link)
         suite.visit(StatisticsBuilder(total_builder, suite_builder, tag_builder))

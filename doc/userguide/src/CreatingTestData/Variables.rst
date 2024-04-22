@@ -10,7 +10,7 @@ Introduction
 
 Variables are an integral feature of Robot Framework, and they can be
 used in most places in test data. Most commonly, they are used in
-arguments for keywords in test case tables and keyword tables, but
+arguments for keywords in Test Case and Keyword sections, but
 also all settings allow variables in their values. A normal keyword
 name *cannot* be specified with a variable, but the BuiltIn_ keyword
 :name:`Run Keyword` can be used to get the same effect.
@@ -122,17 +122,17 @@ a string and then concatenated with the other data.
 The example below demonstrates the difference between having a
 variable in alone or with other content. First, let us assume
 that we have a variable `${STR}` set to a string `Hello,
-world!` and `${OBJ}` set to an instance of the following Java
+world!` and `${OBJ}` set to an instance of the following Python
 object:
 
-.. sourcecode:: java
+.. sourcecode:: python
 
- public class MyObj {
+ class MyObj:
 
-     public String toString() {
-         return "Hi, terra!";
-     }
- }
+     def __str__():
+         return "Hi, terra!"
+
+
 
 With these two variables set, we then have the following test data:
 
@@ -163,15 +163,16 @@ the arguments as explained below:
 
 .. _list variable:
 .. _list variables:
+.. _list expansion:
 
 List variable syntax
 ~~~~~~~~~~~~~~~~~~~~
 
 When a variable is used as a scalar like `${EXAMPLE}`, its value is be
 used as-is. If a variable value is a list or list-like, it is also possible
-to use it as a list variable like `@{EXAMPLE}`. In this case individual list
-items are passed in as arguments separately. This is easiest to explain with
-an example. Assuming that a variable `@{USER}` has value `['robot', 'secret']`,
+to use it as a list variable like `@{EXAMPLE}`. In this case the list is expanded
+and individual items are passed in as separate arguments. This is easiest to explain
+with an example. Assuming that a variable `@{USER}` has value `['robot', 'secret']`,
 the following two test cases are equivalent:
 
 .. sourcecode:: robotframework
@@ -189,10 +190,22 @@ requires its value to be a Python list or list-like object. Robot Framework
 does not allow strings to be used as lists, but other iterable objects such
 as tuples or dictionaries are accepted.
 
-Prior to Robot Framework 2.9, scalar and list variables were stored separately,
-but it was possible to use list variables as scalars and scalar variables as
-lists. This caused lot of confusion when there accidentally was a scalar
-variable and a list variable with same name but different value.
+Starting from Robot Framework 4.0, list expansion can be used in combination with
+`list item access`__ making these usages possible:
+
+.. sourcecode:: robotframework
+
+   *** Test Cases ***
+   Nested container
+       ${nested} =    Evaluate    [['a', 'b', 'c'], {'key': ['x', 'y']}]
+       Log Many    @{nested}[0]         # Logs 'a', 'b' and 'c'.
+       Log Many    @{nested}[1][key]    # Logs 'x' and 'y'.
+
+   Slice
+       ${items} =    Create List    first    second    third
+       Log Many    @{items}[1:]         # Logs 'second' and  'third'.
+
+__ `Accessing sequence items`_
 
 Using list variables with other data
 ''''''''''''''''''''''''''''''''''''
@@ -211,7 +224,7 @@ other list variables.
 Using list variables with settings
 ''''''''''''''''''''''''''''''''''
 
-List variables can be used only with some of the settings__. They can
+List variables can be used only with some of the settings_. They can
 be used in arguments to imported libraries and variable files, but
 library and variable file names themselves cannot be list
 variables. Also with setups and teardowns list variable can not be used
@@ -230,10 +243,9 @@ those places where list variables are not supported.
    Suite Setup     @{KEYWORD AND ARGS}                # This does not work
    Default Tags    @{TAGS}                            # This works
 
-__ `All available settings in test data`_
-
 .. _dictionary variable:
 .. _dictionary variables:
+.. _dictionary expansion:
 
 Dictionary variable syntax
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -242,7 +254,7 @@ As discussed above, a variable containing a list can be used as a `list
 variable`_ to pass list items to a keyword as individual arguments.
 Similarly a variable containing a Python dictionary or a dictionary-like
 object can be used as a dictionary variable like `&{EXAMPLE}`. In practice
-this means that individual items of the dictionary are passed as
+this means that the dictionary is expanded and individual items are passed as
 `named arguments`_ to the keyword. Assuming that a variable `&{USER}` has
 value `{'name': 'robot', 'password': 'secret'}`, the following two test cases
 are equivalent.
@@ -256,7 +268,10 @@ are equivalent.
    Dict Variable
        Login    &{USER}
 
-Dictionary variables are new in Robot Framework 2.9.
+Starting from Robot Framework 4.0, dictionary expansion can be used in combination with
+`dictionary item access`__ making usages like `&{nested}[key]` possible.
+
+__ `Accessing individual dictionary items`_
 
 Using dictionary variables with other data
 ''''''''''''''''''''''''''''''''''''''''''
@@ -291,64 +306,75 @@ are imports, setups and teardowns where dictionaries can be used as arguments.
 Accessing list and dictionary items
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-It is possible to access items of lists and dictionaries using special
-syntax `${var}[item]`. Accessing items is an old feature, but prior to
-Robot Framework 3.1 the syntax was `@{var}[item]` with lists and
-`&{var}[item]` with dictionaries. The old syntax still works in Robot
-Framework 3.1, but it `will be deprecated in Robot Framework 3.2`__ and
-its meaning will change in Robot Framework 3.3.
+It is possible to access items of subscriptable variables, e.g. lists and dictionaries,
+using special syntax like `${var}[item]` or `${var}[nested][item]`.
+Starting from Robot Framework 4.0, it is also possible to use item access together with
+`list expansion`_ and `dictionary expansion`_ by using syntax `@{var}[item]` and
+`&{var}[item]`, respectively.
 
-__ https://github.com/robotframework/robotframework/issues/2973
+.. note:: Prior to Robot Framework 3.1 the normal item access syntax was  `@{var}[item]`
+          with lists and `&{var}[item]` with dictionaries. Robot Framework 3.1 introduced
+          the generic `${var}[item]` syntax along with some other nice enhancements and
+          the old item access syntax was deprecated in Robot Framework 3.2.
 
-Accessing list items
-''''''''''''''''''''
+.. _sequence items:
 
-It is possible to access a certain item of a list variable with the syntax
-`${var}[index]`, where `index` is the index of the selected value. Indices
-start from zero, negative indices can be used to access items from the end,
-and trying to access an item with too large an index causes an error.
-Indices are automatically converted to integers, and it is also possible to
-use variables as indices. List items accessed in this manner can be used
-similarly as scalar variables.
+Accessing sequence items
+''''''''''''''''''''''''
+
+It is possible to access a certain item of a variable containing a `sequence`__
+(e.g. list, string or bytes) with the syntax `${var}[index]`, where `index`
+is the index of the selected value. Indices start from zero, negative indices
+can be used to access items from the end, and trying to access an item with
+too large an index causes an error. Indices are automatically converted to
+integers, and it is also possible to use variables as indices.
 
 .. sourcecode:: robotframework
 
    *** Test Cases ***
-   List variable item
+   Positive index
        Login    ${USER}[0]    ${USER}[1]
        Title Should Be    Welcome ${USER}[0]!
 
    Negative index
-       Log    ${LIST}[-1]
+       Keyword    ${SEQUENCE}[-1]
 
    Index defined as variable
-       Log    ${LIST}[${INDEX}]
+       Keyword    ${SEQUENCE}[${INDEX}]
 
-List item access supports also the `same "slice" functionality as Python`__
+Sequence item access supports also the `same "slice" functionality as Python`__
 with syntax like `${var}[1:]`. With this syntax you do not get a single
-item but a slice of the original list. Same way as with Python you can
+item but a slice of the original sequence. Same way as with Python you can
 specify the start index, the end index, and the step:
 
 .. sourcecode:: robotframework
 
    *** Test Cases ***
    Start index
-       Keyword    ${LIST}[1:]
+       Keyword    ${SEQUENCE}[1:]
 
    End index
-       Keyword    ${LIST}[:4]
+       Keyword    ${SEQUENCE}[:4]
 
    Start and end
-       Keyword    ${LIST}[2:-1]
+       Keyword    ${SEQUENCE}[2:-1]
 
    Step
-       Keyword    ${LIST}[::2]
-       Keyword    ${LIST}[2:-1:2]
+       Keyword    ${SEQUENCE}[::2]
+       Keyword    ${SEQUENCE}[1:-1:10]
 
-.. note:: The slice syntax is new in Robot Framework 3.1 and does not work
-          with the old `@{var}[index]` syntax.
+.. note:: The slice syntax is new in Robot Framework 3.1. It was extended to work
+          with `list expansion`_ like `@{var}[1:]` in Robot Framework 4.0.
 
+.. note:: Prior to Robot Framework 3.2, item and slice access was only supported
+          with variables containing lists, tuples, or other objects considered
+          list-like. Nowadays all sequences, including strings and bytes, are
+          supported.
+
+__ https://docs.python.org/3/glossary.html#term-sequence
 __ https://docs.python.org/glossary.html#term-slice
+
+.. _dictionary items:
 
 Accessing individual dictionary items
 '''''''''''''''''''''''''''''''''''''
@@ -380,7 +406,7 @@ for more details about this syntax.
 Nested item access
 ''''''''''''''''''
 
-Also nested list and dictionary structures can be accessed using the same
+Also nested subscriptable variables can be accessed using the same
 item access syntax like `${var}[item1][item2]`. This is especially useful
 when working with JSON data often returned by REST services. For example,
 if a variable `${DATA}` contains `[{'id': 1, 'name': 'Robot'},
@@ -396,9 +422,11 @@ if a variable `${DATA}` contains `[{'id': 1, 'name': 'Robot'},
 Environment variables
 ~~~~~~~~~~~~~~~~~~~~~
 
-Robot Framework allows using environment variables in the test
-data using the syntax `%{ENV_VAR_NAME}`. They are limited to string
-values.
+Robot Framework allows using environment variables in the test data using
+the syntax `%{ENV_VAR_NAME}`. They are limited to string values. It is
+possible to specify a default value, that is used if the environment
+variable does not exists, by separating the variable name and the default
+value with an equal sign like `%{ENV_VAR_NAME=default value}`.
 
 Environment variables set in the operating system before the test execution are
 available during it, and it is possible to create new ones with the keyword
@@ -416,31 +444,24 @@ not effective after the test execution.
        Log    Current user: %{USER}
        Run    %{JAVA_HOME}${/}javac
 
-Java system properties
-~~~~~~~~~~~~~~~~~~~~~~
+   Environment variables with defaults
+       Set port    %{APPLICATION_PORT=8080}
 
-When running tests with Jython, it is possible to access `Java system properties`__
-using same syntax as `environment variables`_. If an environment variable and a
-system property with same name exist, the environment variable will be used.
+.. note:: Support for specifying the default value is new in Robot Framework 3.2.
 
-.. sourcecode:: robotframework
-
-   *** Test Cases ***
-   System properties
-       Log    %{user.name} running tests on %{os.name}
-
-__ http://docs.oracle.com/javase/tutorial/essential/environment/sysprop.html
 
 Creating variables
 ------------------
 
 Variables can spring into existence from different sources.
 
-Variable table
-~~~~~~~~~~~~~~
+.. _Variable sections:
 
-The most common source for variables are Variable tables in `test case
-files`_ and `resource files`_. Variable tables are convenient, because they
+Variable section
+~~~~~~~~~~~~~~~~
+
+The most common source for variables are Variable sections in `suite files`_
+and `resource files`_. Variable sections are convenient, because they
 allow creating variables in the same place as the rest of the test
 data, and the needed syntax is very simple. Their main disadvantages are
 that values are always strings and they cannot be created dynamically.
@@ -451,7 +472,7 @@ Creating scalar variables
 
 The simplest possible variable assignment is setting a string into a
 scalar variable. This is done by giving the variable name (including
-`${}`) in the first column of the Variable table and the value in
+`${}`) in the first column of the Variable section and the value in
 the second one. If the second column is empty, an empty string is set
 as a value. Also an already defined variable can be used in the value.
 
@@ -472,31 +493,49 @@ variables slightly more explicit.
    ${NAME} =       Robot Framework
    ${VERSION} =    2.0
 
-If a scalar variable has a long value, it can be split to multiple columns and
-rows__. By default cells are catenated together using a space, but this
-can be changed by having `SEPARATOR=<sep>` in the first cell.
+If a scalar variable has a long value, it can be `split into multiple rows`__
+by using the `...` syntax. By default rows are concatenated together using
+a space, but this can be changed by using a having `separator` configuration
+option after the last value:
 
 .. sourcecode:: robotframework
 
    *** Variables ***
-   ${EXAMPLE}      This value is joined    together with a space
-   ${MULTILINE}    SEPARATOR=\n    First line
-   ...             Second line     Third line
+   ${EXAMPLE}      This value is joined
+   ...             together with a space.
+   ${MULTILINE}    First line.
+   ...             Second line.
+   ...             Third line.
+   ...             separator=\n
 
-Joining long values like above is a new feature in Robot Framework 2.9.
+The `separator` option is new in Robot Framework 7.0, but also older versions
+support configuring the separator. With them the first value can contain a
+special `SEPARATOR` marker:
 
-__ `Dividing test data to several rows`_
+.. sourcecode:: robotframework
+
+   *** Variables ***
+   ${MULTILINE}    SEPARATOR=\n
+   ...             First line.
+   ...             Second line.
+   ...             Third line.
+
+Both the `separator` option and the `SEPARATOR` marker are case-sensitive.
+Using the `separator` option is recommended, unless there is a need to
+support also older versions.
+
+__ `Dividing data to several rows`_
 
 Creating list variables
 '''''''''''''''''''''''
 
 Creating list variables is as easy as creating scalar variables. Again, the
-variable name is in the first column of the Variable table and
+variable name is in the first column of the Variable section and
 values in the subsequent columns. A list variable can have any number
 of values, starting from zero, and if many values are needed, they
 can be `split into several rows`__.
 
-__ `Dividing test data to several rows`_
+__ `Dividing data to several rows`_
 
 .. sourcecode:: robotframework
 
@@ -510,7 +549,7 @@ __ `Dividing test data to several rows`_
 Creating dictionary variables
 '''''''''''''''''''''''''''''
 
-Dictionary variables can be created in the variable table similarly as
+Dictionary variables can be created in the Variable section similarly as
 list variables. The difference is that items need to be created using
 `name=value` syntax or existing dictionary variables. If there are multiple
 items with same name, the last value has precedence. If a name contains
@@ -534,19 +573,34 @@ Python dictionaries have. For example, individual value `&{USER}[name]` can
 also be accessed like `${USER.name}` (notice that `$` is needed in this
 context), but using `${MANY.3}` is not possible.
 
-.. note:: Starting from Robot Framework 3.0.3, dictionary variable keys are
-          accessible recursively like `${VAR.nested.key}`. This eases working
-          with nested data structures.
+.. tip:: With nested dictionary variables keys are accessible like
+         `${VAR.nested.key}`. This eases working with nested data structures.
 
 Another special property of dictionary variables is
 that they are ordered. This means that if these dictionaries are iterated,
 their items always come in the order they are defined. This can be useful
-if dictionaries are used as `list variables`_ with `for loops`_ or otherwise.
+if dictionaries are used as `list variables`_ with `FOR loops`_ or otherwise.
 When a dictionary is used as a list variable, the actual value contains
 dictionary keys. For example, `@{MANY}` variable would have value `['first',
 'second', 3]`.
 
 __ Escaping_
+
+Creating variable name based on another variable
+''''''''''''''''''''''''''''''''''''''''''''''''
+
+Starting from Robot Framework 7.0, it is possible to create the variable name
+dynamically based on another variable:
+
+.. sourcecode:: robotframework
+
+   *** Variables ***
+   ${X}        Y
+   ${${X}}     Z    # Name is created based on '${X}'.
+
+   *** Test Cases ***
+   Dynamically created name
+       Should Be Equal    ${Y}    Z
 
 Variable file
 ~~~~~~~~~~~~~
@@ -564,7 +618,7 @@ Variables can be set from the command line either individually with
 the :option:`--variable (-v)` option or using a variable file with the
 :option:`--variablefile (-V)` option. Variables set from the command line
 are globally available for all executed test data files, and they also
-override possible variables with the same names in the Variable table and in
+override possible variables with the same names in the Variable section and in
 variable files imported in the test data.
 
 The syntax for setting individual variables is :option:`--variable
@@ -583,7 +637,6 @@ In the examples above, variables are set so that
 - `${EXAMPLE}` gets the value `value`
 - `${HOST}` and `${USER}` get the values
   `localhost:7272` and `robot`
-- `${ESCAPED}` gets the value `"quotes and spaces"`
 
 The basic syntax for taking `variable files`_ into use from the command line
 is :option:`--variablefile path/to/variables.py`, and `Taking variable files into
@@ -643,6 +696,45 @@ variable`_ if it has a dictionary-like value.
        Length Should Be    ${list}    3
        Log Many    @{list}
 
+Assigning variables with item values
+''''''''''''''''''''''''''''''''''''
+
+Starting from Robot Framework 6.1, when working with variables that support
+item assignment such as lists or dictionaries, it is possible to set their values
+by specifying the index or key of the item using the syntax `${var}[item]`
+where the `item` part can itself contain a variable:
+
+.. sourcecode:: robotframework
+
+   *** Test Cases ***
+   Item assignment to list
+       ${list} =          Create List      one    two    three    four
+       ${list}[0] =       Set Variable     first
+       ${list}[${1}] =    Set Variable     second
+       ${list}[2:3] =     Evaluate         ['third']
+       ${list}[-1] =      Set Variable     last
+       Log Many           @{list}          # Logs 'first', 'second', 'third' and 'last'
+
+   Item assignment to dictionary
+       ${dict} =                Create Dictionary    first_name=unknown
+       ${dict}[first_name] =    Set Variable         John
+       ${dict}[last_name] =     Set Variable         Doe
+       Log                      ${dictionary}        # Logs {'first_name': 'John', 'last_name': 'Doe'}
+
+Creating variable name based on another variable
+''''''''''''''''''''''''''''''''''''''''''''''''
+
+Starting from Robot Framework 7.0, it is possible to create the name of the assigned
+variable dynamically based on another variable:
+
+.. sourcecode:: robotframework
+
+   *** Test Cases ***
+   Dynamically created name
+       ${x} =    Set Variable    y
+       ${${x}} =    Set Variable    z    # Name is created based on '${x}'.
+       Should Be Equal    ${y}    z
+
 Assigning list variables
 ''''''''''''''''''''''''
 
@@ -689,7 +781,7 @@ verifies that the returned value is a dictionary or dictionary-like similarly
 as it verifies that list variables can only get a list-like value.
 
 A bigger benefit is that the value is converted into a special dictionary
-that it uses also when `creating dictionary variables`_ in the variable table.
+that it uses also when `creating dictionary variables`_ in the Variable section.
 Values in these dictionaries can be accessed using attribute access like
 `${dict.first}` in the above example. These dictionaries are also ordered, but
 if the original dictionary was not ordered, the resulting order is arbitrary.
@@ -723,15 +815,185 @@ It is an error if the returned list has more or less values than there are
 scalar variables to assign. Additionally, only one list variable is allowed
 and dictionary variables can only be assigned alone.
 
-The support for assigning multiple variables was slightly changed in
-Robot Framework 2.9. Prior to it a list variable was only allowed as
-the last assigned variable, but nowadays it can be used anywhere.
-Additionally, it was possible to return more values than scalar variables.
-In that case the last scalar variable was magically turned into a list
-containing the extra values.
+Automatically logging assigned variable value
+'''''''''''''''''''''''''''''''''''''''''''''
+
+To make it easier to understand what happens during execution,
+the beginning of value that is assigned is automatically logged.
+The default is to show 200 first characters, but this can be changed
+by using the :option:`--maxassignlength` command line option when
+running tests. If the value is zero or negative, the whole assigned
+value is hidden.
+
+.. sourcecode:: bash
+
+   --maxassignlength 1000
+   --maxassignlength 0
+
+The reason the value is not logged fully is that it could be really
+big. If you always want to see a certain value fully, it is possible
+to use the BuiltIn_ :name:`Log` keyword to log it after the assignment.
+
+.. note:: The :option:`--maxassignlength` option is new in Robot Framework 5.0.
+
+`VAR` syntax
+~~~~~~~~~~~~
+
+Starting from Robot Framework 7.0, it is possible to create variables inside
+tests and user keywords using the `VAR` syntax. The `VAR` marker is case-sensitive
+and it must be followed by a variable name and value. Other than the mandatory
+`VAR`, the overall syntax is mostly the same as when creating variables
+in the `Variable section`_.
+
+The new syntax is aims to make creating variables simpler and more uniform. It is
+especially indented to replace the BuiltIn_ keywords :name:`Set Variable`,
+:name:`Set Test Variable`, :name:`Set Suite Variable` and :name:`Set Global Variable`,
+but it can be used instead of :name:`Catenate`, :name:`Create List` and
+:name:`Create Dictionary` as well.
+
+Creating scalar variables
+'''''''''''''''''''''''''
+
+In simple cases scalar variables are created by just giving a variable name
+and its value. The value can be a hard-coded string or it can itself contain
+a variable. If the value is long, it is possible to split it into multiple
+columns and rows. In that case parts are joined together with a space by default,
+but the separator to use can be specified with the `separator` configuration
+option. It is possible to have an optional `=` after the variable name the same
+way as when creating variables based on `return values from keywords`_ and in
+the `Variable section`_.
+
+.. sourcecode:: robotframework
+
+   *** Test Cases ***
+   Scalar examples
+        VAR    ${simple}       variable
+        VAR    ${equals} =     this works too
+        VAR    ${variable}     value contains ${simple}
+        VAR    ${sentence}     This is a bit longer variable value
+        ...                    that is split into multiple rows.
+        ...                    These parts are joined with a space.
+        VAR    ${multiline}    This is another longer value.
+        ...                    This time there is a custom separator.
+        ...                    As the result this becomes a multiline string.
+        ...                    separator=\n
+
+Creating list and dictionary variables
+''''''''''''''''''''''''''''''''''''''
+
+List and dictionary variables are created similarly as scalar variables.
+When creating dictionaries, items must be specified using the `name=value` syntax.
+
+.. sourcecode:: robotframework
+
+   *** Test Cases ***
+   List examples
+        VAR    @{two items}     Robot    Framework
+        VAR    @{empty list}
+        VAR    @{lot of stuff}
+        ...    first item
+        ...    second item
+        ...    third item
+        ...    fourth item
+        ...    last item
+
+   Dictionary examples
+        VAR    &{two items}     name=Robot Framework    url=http://robotframework.org
+        VAR    &{empty dict}
+        VAR    &{lot of stuff}
+        ...    first=1
+        ...    second=2
+        ...    third=3
+        ...    fourth=4
+        ...    last=5
+
+Scope
+'''''
+
+Variables created with the `VAR` syntax are are available only within the test
+or user keyword where they are created. That can, however, be altered by using
+the `scope` configuration option. Supported values are `LOCAL` (default),
+`TEST` (available within the current test), `TASK` (alias for `TEST`), `SUITE`
+(available within the current suite) and `GLOBAL` (available globally).
+Although Robot Framework variables are case-insensitive, it is recommended to
+use capital letters with non-local variable names.
+
+.. sourcecode:: robotframework
+
+    *** Variables ***
+    ${SUITE}         this value is overridden
+
+    *** Test Cases ***
+    Scope example
+        VAR    ${local}     local value
+        VAR    ${TEST}      test value      scope=TEST
+        VAR    ${SUITE}     suite value     scope=SUITE
+        VAR    ${GLOBAL}    global value    scope=GLOBAL
+        Should Be Equal    ${local}     local value
+        Should Be Equal    ${TEST}      test value
+        Should Be Equal    ${SUITE}     suite value
+        Should Be Equal    ${GLOBAL}    global value
+        Keyword
+        Should Be Equal    ${TEST}      new test value
+        Should Be Equal    ${SUITE}     new suite value
+        Should Be Equal    ${GLOBAL}    new global value
+
+    Scope example, part 2
+        Should Be Equal    ${SUITE}     new suite value
+        Should Be Equal    ${GLOBAL}    new global value
+
+    *** Keywords ***
+    Keyword
+        Should Be Equal    ${TEST}      test value
+        Should Be Equal    ${SUITE}     suite value
+        Should Be Equal    ${GLOBAL}    global value
+        VAR    ${TEST}      new ${TEST}      scope=TEST
+        VAR    ${SUITE}     new ${SUITE}     scope=SUITE
+        VAR    ${GLOBAL}    new ${GLOBAL}    scope=GLOBAL
+        Should Be Equal    ${TEST}      new test value
+        Should Be Equal    ${SUITE}     new suite value
+        Should Be Equal    ${GLOBAL}    new global value
+
+Creating variables conditionally
+''''''''''''''''''''''''''''''''
+
+The `VAR` syntax works with `IF/ELSE structures`_ which makes it easy to create
+variables conditionally. In simple cases using `inline IF`_ can be convenient.
+
+.. sourcecode:: robotframework
+
+    *** Test Cases ***
+    IF/ELSE example
+        IF    "${ENV}" == "devel"
+            VAR    ${address}    127.0.0.1
+            VAR    ${name}       demo
+        ELSE
+            VAR    ${address}    192.168.1.42
+            VAR    ${name}       robot
+        END
+
+    Inline IF
+        IF    "${ENV}" == "devel"    VAR    ${name}    demo    ELSE    VAR    ${name}    robot
+
+Creating variable name based on another variable
+''''''''''''''''''''''''''''''''''''''''''''''''
+
+If there is a need, variable name can also be created dynamically based on
+another variable.
+
+.. sourcecode:: robotframework
+
+    *** Test Cases ***
+    Dynamic name
+        VAR    ${x}       y    # Normal assignment.
+        VAR    ${${x}}    z    # Name created dynamically.
+        Should Be Equal    ${y}    z
 
 Using :name:`Set Test/Suite/Global Variable` keywords
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note:: The `VAR` syntax is recommended over these keywords when using
+          Robot Framework 7.0 or newer.
 
 The BuiltIn_ library has keywords :name:`Set Test Variable`,
 :name:`Set Suite Variable` and :name:`Set Global Variable` which can
@@ -744,12 +1006,13 @@ everywhere within the scope of the currently executed test case. For
 example, if you set a variable in a user keyword, it is available both
 in the test case level and also in all other user keywords used in the
 current test. Other test cases will not see variables set with this
-keyword.
+keyword. It is an error to call :name:`Set Test Variable`
+outside the scope of a test (e.g. in a Suite Setup or Teardown).
 
 Variables set with :name:`Set Suite Variable` keyword are available
 everywhere within the scope of the currently executed test
 suite. Setting variables with this keyword thus has the same effect as
-creating them using the `Variable table`_ in the test data file or
+creating them using the `Variable section`_ in the test data file or
 importing them from `variable files`_. Other test suites, including
 possible child test suites, will not see variables set with this
 keyword.
@@ -853,7 +1116,7 @@ The syntax is case insensitive.
 Boolean and None/null variables
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Also Boolean values and Python `None` and Java `null` can
+Also Boolean values and Python `None` can
 be created using the variable syntax similarly as numbers.
 
 .. sourcecode:: robotframework
@@ -866,15 +1129,9 @@ be created using the variable syntax similarly as numbers.
    None
        Do XYZ    ${None}                   # Do XYZ gets Python None as an argument
 
-   Null
-       ${ret} =    Get Value    arg        # Checking that Get Value returns Java null
-       Should Be Equal    ${ret}    ${null}
 
 These variables are case-insensitive, so for example `${True}` and
-`${true}` are equivalent. Additionally, `${None}` and
-`${null}` are synonyms, because when running tests on the Jython
-interpreter, Jython automatically converts `None` and
-`null` to the correct format when necessary.
+`${true}` are equivalent.
 
 Space and empty variables
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -930,8 +1187,6 @@ scopes. Modifying the value of `@{EMPTY}` or `&{EMPTY}` is not possible.
 .. note:: `${SPACE}` represents the ASCII space (`\x20`) and `other spaces`__
           should be specified using the `escape sequences`__ like `\xA0`
           (NO-BREAK SPACE) and `\u3000` (IDEOGRAPHIC SPACE).
-
-.. note:: `&{EMPTY}` is new in Robot Framework 2.9.
 
 __ Escaping_
 __ https://groups.google.com/group/robotframework-users/browse_thread/thread/ccc9e1cd77870437/4577836fe946e7d5?lnk=gst&q=templates#4577836fe946e7d5
@@ -1005,25 +1260,40 @@ can be changed dynamically using keywords from the `BuiltIn`_ library.
    +------------------------+-------------------------------------------------------+------------+
    | ${LOG LEVEL}           | Current `log level`_.                                 | Everywhere |
    +------------------------+-------------------------------------------------------+------------+
-   | ${OUTPUT FILE}         | An absolute path to the `output file`_.               | Everywhere |
+   | ${OUTPUT DIR}          | An absolute path to the `output directory`_ as        | Everywhere |
+   |                        | a string.                                             |            |
    +------------------------+-------------------------------------------------------+------------+
-   | ${LOG FILE}            | An absolute path to the `log file`_ or string NONE    | Everywhere |
-   |                        | when no log file is created.                          |            |
+   | ${OUTPUT FILE}         | An absolute path to the `output file`_ as a string or | Everywhere |
+   |                        | a string `NONE` if the output file is not created.    |            |
    +------------------------+-------------------------------------------------------+------------+
-   | ${REPORT FILE}         | An absolute path to the `report file`_ or string NONE | Everywhere |
-   |                        | when no report is created.                            |            |
+   | ${LOG FILE}            | An absolute path to the `log file`_ as a string or    | Everywhere |
+   |                        | a string `NONE` if the log file is not created.       |            |
    +------------------------+-------------------------------------------------------+------------+
-   | ${DEBUG FILE}          | An absolute path to the `debug file`_ or string NONE  | Everywhere |
-   |                        | when no debug file is created.                        |            |
+   | ${REPORT FILE}         | An absolute path to the `report file`_ as a string or | Everywhere |
+   |                        | a string `NONE` if the report file is not created.    |            |
    +------------------------+-------------------------------------------------------+------------+
-   | ${OUTPUT DIR}          | An absolute path to the `output directory`_.          | Everywhere |
+   | ${DEBUG FILE}          | An absolute path to the `debug file`_ as a string or  | Everywhere |
+   |                        | a string `NONE` if the debug file is not created.     |            |
+   +------------------------+-------------------------------------------------------+------------+
+   | &{OPTIONS}             | A dictionary exposing command line options. The       | Everywhere |
+   |                        | dictionary keys match the command line options and    |            |
+   |                        | can be accessed both like `${OPTIONS}[key]` and       |            |
+   |                        | `${OPTIONS.key}`. Available options:                  |            |
+   |                        |                                                       |            |
+   |                        | - `${OPTIONS.exclude}` (:option:`--exclude`)          |            |
+   |                        | - `${OPTIONS.include}` (:option:`--include`)          |            |
+   |                        | - `${OPTIONS.skip}` (:option:`--skip`)                |            |
+   |                        | - `${OPTIONS.skip_on_failure}`                        |            |
+   |                        |   (:option:`--skiponfailure`)                         |            |
+   |                        |                                                       |            |
+   |                        | New in RF 5.0. More options can be exposed later.     |            |
    +------------------------+-------------------------------------------------------+------------+
 
-Suite related variables `${SUITE SOURCE}`, `${SUITE NAME}`,
-`${SUITE DOCUMENTATION}` and `&{SUITE METADATA}` are
-available already when test libraries and variable files are imported.
-Possible variables in these automatic variables are not yet resolved
-at the import time, though.
+Suite related variables `${SUITE SOURCE}`, `${SUITE NAME}`, `${SUITE DOCUMENTATION}`
+and `&{SUITE METADATA}` as well as options related to command line options like
+`${LOG FILE}` and `&{OPTIONS}` are available already when libraries and variable
+files are imported. Possible variables in these automatic variables are not yet
+resolved at the import time, though.
 
 Variable priorities and scopes
 ------------------------------
@@ -1038,7 +1308,7 @@ Variable priorities
 
    Variables `set in the command line`__ have the highest priority of all
    variables that can be set before the actual test execution starts. They
-   override possible variables created in Variable tables in test case
+   override possible variables created in Variable sections in test case
    files, as well as in resource and variable files imported in the
    test data.
 
@@ -1052,16 +1322,16 @@ Variable priorities
 
 __ `Setting variables in command line`_
 
-*Variable table in a test case file*
+*Variable section in a test case file*
 
-   Variables created using the `Variable table`_ in a test case file
+   Variables created using the `Variable section`_ in a test case file
    are available for all the test cases in that file. These variables
    override possible variables with same names in imported resource and
    variable files.
 
-   Variables created in the variable tables are available in all other tables
+   Variables created in the Variable sections are available in all other sections
    in the file where they are created. This means that they can be used also
-   in the Setting table, for example, for importing more variables from
+   in the Setting section, for example, for importing more variables from
    resource and variable files.
 
 *Imported resource and variable files*
@@ -1073,13 +1343,13 @@ __ `Setting variables in command line`_
    variables, the ones in the file imported first are taken into use.
 
    If a resource file imports resource files or variable files,
-   variables in its own Variable table have a higher priority than
+   variables in its own Variable section have a higher priority than
    variables it imports. All these variables are available for files that
    import this resource file.
 
    Note that variables imported from resource and variable files are not
-   available in the Variable table of the file that imports them. This
-   is due to the Variable table being processed before the Setting table
+   available in the Variable section of the file that imports them. This
+   is due to the Variable section being processed before the Setting section
    where the resource files and variable files are imported.
 
 *Variables set during test execution*
@@ -1095,7 +1365,7 @@ __ `Setting variables in command line`_
 
    `Built-in variables`_ like `${TEMPDIR}` and `${TEST_NAME}`
    have the highest priority of all variables. They cannot be overridden
-   using Variable table or from command line, but even they can be reset during
+   using Variable section or from command line, but even they can be reset during
    the test execution. An exception to this rule are `number variables`_, which
    are resolved dynamically if no variable is found otherwise. They can thus be
    overridden, but that is generally a bad idea. Additionally `${CURDIR}`
@@ -1114,7 +1384,7 @@ Global variables are available everywhere in the test data. These
 variables are normally `set from the command line`__ with the
 :option:`--variable` and :option:`--variablefile` options, but it is also
 possible to create new global variables or change the existing ones
-with the BuiltIn_ keyword :name:`Set Global Variable` anywhere in
+by using the `VAR syntax`_ or the :name:`Set Global Variable` keyword anywhere in
 the test data. Additionally also `built-in variables`_ are global.
 
 It is recommended to use capital letters with all global variables.
@@ -1124,9 +1394,9 @@ Test suite scope
 
 Variables with the test suite scope are available anywhere in the
 test suite where they are defined or imported. They can be created
-in Variable tables, imported from `resource and variable files`_,
-or set during the test execution using the BuiltIn_ keyword
-:name:`Set Suite Variable`.
+in Variable sections, imported from `resource and variable files`_,
+or set during the test execution using the `VAR syntax`_ or the
+:name:`Set Suite Variable` keyword.
 
 The test suite scope *is not recursive*, which means that variables
 available in a higher-level test suite *are not available* in
@@ -1141,8 +1411,10 @@ Test case scope
 
 Variables with the test case scope are visible in a test case and in
 all user keywords the test uses. Initially there are no variables in
-this scope, but it is possible to create them by using the BuiltIn_
-keyword :name:`Set Test Variable` anywhere in a test case.
+this scope, but it is possible to create them by using the `VAR syntax`_ or
+the :name:`Set Test Variable` keyword anywhere in a test case.
+Trying to create test variables in suite setup or suite teardown causes
+and error.
 
 Also variables in the test case scope are to some extend global. It is
 thus generally recommended to use capital letters with them too.
@@ -1152,20 +1424,14 @@ Local scope
 
 Test cases and user keywords have a local variable scope that is not
 seen by other tests or keywords. Local variables can be created using
-`return values`__ from executed keywords and user keywords also get
-them as arguments__.
+`return values`__ from executed keywords and with the `VAR syntax`_,
+and user keywords also get them as arguments__.
 
 It is recommended to use lower-case letters with local variables.
-
-.. note:: Prior to Robot Framework 2.9 variables in the local scope
-          `leaked to lower level user keywords`__. This was never an
-          intended feature, and variables should be set or passed
-          explicitly also with earlier versions.
 
 __ `Setting variables in command line`_
 __ `Return values from keywords`_
 __ `User keyword arguments`_
-__ https://github.com/robotframework/robotframework/issues/532
 
 Advanced variable features
 --------------------------
@@ -1176,7 +1442,7 @@ Extended variable syntax
 Extended variable syntax allows accessing attributes of an object assigned
 to a variable (for example, `${object.attribute}`) and even calling
 its methods (for example, `${obj.getName()}`). It works both with
-scalar and list variables, but is mainly useful with the former
+scalar and list variables, but is mainly useful with the former.
 
 Extended variable syntax is a powerful feature, but it should
 be used with care. Accessing attributes is normally not a problem, on
@@ -1245,37 +1511,6 @@ The extended variable syntax is evaluated in the following order:
 
 5. The whole extended variable is replaced with the value returned
    from the evaluation.
-
-If the object that is used is implemented with Java, the extended
-variable syntax allows you to access attributes using so-called bean
-properties. In essence, this means that if you have an object with the
-`getName`  method set into a variable `${OBJ}`, then the
-syntax `${OBJ.name}` is equivalent to but clearer than
-`${OBJ.getName()}`. The Python object used in the previous example
-could thus be replaced with the following Java implementation:
-
-.. sourcecode:: java
-
- public class MyObject:
-
-     private String name;
-
-     public MyObject(String name) {
-         name = name;
-     }
-
-     public String getName() {
-         return name;
-     }
-
-     public String eat(String what) {
-         return name + " eats " + what;
-     }
-
-     public String toString() {
-         return name;
-     }
- }
 
 Many standard Python objects, including strings and numbers, have
 methods that can be used with the extended variable syntax either
@@ -1400,3 +1635,52 @@ or `${JANE HOME}`, depending on if :name:`Get Name` returns
    Example
        ${name} =    Get Name
        Do X    ${${name} HOME}
+
+
+.. _inline Python evaluation:
+
+Inline Python evaluation
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Variable syntax can also be used for evaluating Python expressions. The
+basic syntax is `${{expression}}` i.e. there are double curly braces around
+the expression. The `expression` can be any valid Python expression such as
+`${{1 + 2}}` or `${{['a', 'list']}}`. Spaces around the expression are allowed,
+so also `${{ 1 + 2 }}` and `${{ ['a', 'list'] }}` are valid. In addition to
+using normal `scalar variables`_, also `list variables`_ and
+`dictionary variables`_ support `@{{expression}}` and `&{{expression}}` syntax,
+respectively.
+
+Main usages for this pretty advanced functionality are:
+
+- Evaluating Python expressions involving Robot Framework's variables
+  (`${{len('${var}') > 3}}`, `${{$var[0] if $var is not None else None}}`).
+
+- Creating values that are not Python base types
+  (`${{decimal.Decimal('0.11')}}`, `${{datetime.date(2019, 11, 5)}}`).
+
+- Creating values dynamically (`${{random.randint(0, 100)}}`,
+  `${{datetime.date.today()}}`).
+
+- Constructing collections, especially nested collections (`${{[1, 2, 3, 4]}}`,
+  `${{ {'id': 1, 'name': 'Example', 'children': [7, 9]} }}`).
+
+- Accessing constants and other useful attributes in Python modules
+  (`${{math.pi}}`, `${{platform.system()}}`).
+
+This is somewhat similar functionality than the `extended variable syntax`_
+discussed earlier. As the examples above illustrate, this syntax is even more
+powerful as it provides access to Python built-ins like `len()` and modules
+like `math`. In addition to being able to use variables like `${var}` in
+the expressions (they are replaced before evaluation), variables are also
+available using the special `$var` syntax during evaluation. The whole expression
+syntax is explained in the `Evaluating expressions`_ appendix.
+
+.. tip:: Instead of creating complicated expressions, it is often better
+         to move the logic into a `custom library`__. That eases
+         maintenance, makes test data easier to understand and can also
+         enhance execution speed.
+
+.. note:: The inline Python evaluation syntax is new in Robot Framework 3.2.
+
+__ `Creating test libraries`_
