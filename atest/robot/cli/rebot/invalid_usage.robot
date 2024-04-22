@@ -1,7 +1,10 @@
 *** Settings ***
 Resource          rebot_cli_resource.robot
-Suite Setup       Run tests to create input file for Rebot
+Suite Setup       Run tests to create input file for Rebot    misc/pass_and_fail.robot    ${INPUT}
 Test Template     Rebot Should Fail
+
+*** Variables ***
+${INPUT}          %{TEMPDIR}/input-for-cli-rebot-invalid-usage.xml
 
 *** Test Cases ***
 Invalid Options
@@ -22,9 +25,19 @@ Non-XML Input
     (\\[Fatal Error\\] .*: Content is not allowed in prolog.\\n)?Reading XML source '.*invalid.robot' failed: .*
     ...    source=%{TEMPDIR}/invalid.robot
 
-Incompatible XML
+Wrong XML root element
     [Setup]    Create File    %{TEMPDIR}/invalid.xml    <not><our>type</our></not>
-    Reading XML source '.*invalid.xml' failed: Incompatible XML element 'not'.
+    Reading XML source '.*invalid.xml' failed: Incompatible root element 'not'.
+    ...    source=%{TEMPDIR}/invalid.xml
+
+Wrong XML child element
+    [Setup]    Create File    %{TEMPDIR}/invalid.xml    <robot><suite><test><wrong/></test></suite></robot>
+    Reading XML source '.*invalid.xml' failed: Incompatible child element 'wrong' for 'test'.
+    ...    source=%{TEMPDIR}/invalid.xml
+
+Incompatible XML child element
+    [Setup]    Create File    %{TEMPDIR}/invalid.xml    <robot><suite><test><test/></test></suite></robot>
+    Reading XML source '.*invalid.xml' failed: Incompatible child element 'test' for 'test'.
     ...    source=%{TEMPDIR}/invalid.xml
 
 Invalid Output Directory
@@ -35,20 +48,20 @@ Invalid Output Directory
     ...    -d %{TEMPDIR}/not-dir/dir -o out.xml -l none -r none
 
 Invalid --SuiteStatLevel
-    Option '--suitestatlevel' expected integer value but got 'not_int'.
+    Invalid value for option '--suitestatlevel': Expected integer, got 'not_int'.
     ...    --suitestatlevel not_int
 
 Invalid --TagStatLink
-    Invalid format for option '--tagstatlink'. Expected 'tag:link:title' but got 'less_than_3x_:'.
+    Invalid value for option '--tagstatlink': Expected format 'tag:link:title', got 'less_than_3x_:'.
     ...    --tagstatlink a:b:c --TagStatLink less_than_3x_:
 
 Invalid --RemoveKeywords
-    Invalid value for option '--removekeywords'. Expected 'ALL', 'PASSED', 'NAME:<pattern>', 'TAG:<pattern>', 'FOR', or 'WUKS' but got 'Invalid'.
+    Invalid value for option '--removekeywords': Expected 'ALL', 'PASSED', 'NAME:<pattern>', 'TAG:<pattern>', 'FOR' or 'WUKS', got 'Invalid'.
     ...    --removekeywords wuks --removek name:xxx --RemoveKeywords Invalid
 
 *** Keywords ***
 Rebot Should Fail
-    [Arguments]    ${error}    ${options}=    ${source}=${INPUTFILE}
+    [Arguments]    ${error}    ${options}=    ${source}=${INPUT}
     ${result} =    Run Rebot    ${options}    ${source}    default options=    output=
     Should Be Equal As Integers   ${result.rc}    252
     Should Be Empty    ${result.stdout}

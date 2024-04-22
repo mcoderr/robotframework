@@ -139,7 +139,9 @@ Default With List Variable
     Should Be True    $result is $arg
 
 Default With Invalid List Variable
-    [Documentation]    FAIL Resolving argument default values failed: Value of variable '\@{VAR}' is not list or list-like.
+    [Documentation]    FAIL
+    ...    Resolving argument default values failed: \
+    ...    Value of variable '\@{VAR}' is not list or list-like.
     Default With Invalid List Variable
 
 Default With Dict Variable
@@ -152,17 +154,27 @@ Default With Dict Variable
     Should Be True    $result is $arg
 
 Default With Invalid Dict Variable
-    [Documentation]    FAIL Resolving argument default values failed: Value of variable '\&{VAR}' is not dictionary or dictionary-like.
+    [Documentation]    FAIL
+    ...    Resolving argument default values failed: \
+    ...    Value of variable '\&{VAR}' is not dictionary or dictionary-like.
     Default With Invalid Dict Variable
+
+Argument With `=` In Name
+    ${result} =    Argument With `=` In Name    x
+    Should Be Equal    ${result}    x-=-x
+    ${result} =    Argument With `=` In Name    x    y
+    Should Be Equal    ${result}    x-y-x
+    ${result} =    Argument With `=` In Name    x    y    z
+    Should Be Equal    ${result}    x-y-z
 
 Calling Using List Variables
     [Documentation]    FAIL Keyword 'A 0 1' expected 0 to 1 arguments, got 3.
-    A 0    @{EMPTY}
-    A 1    @{EMPTY}    arg
-    A 3    @{LIST}
+    A 0      @{EMPTY}
+    A 1      @{EMPTY}    arg
+    A 3      @{LIST}
     A 1 3    @{LIST}
-    A 3    @{LIST}    @{EMPTY}
-    A 0 1    @{LIST}    @{EMPTY}
+    A 3      @{LIST}     @{EMPTY}
+    A 0 1    @{LIST}     @{EMPTY}
 
 Calling Using Dict Variables
     &{arg} =    Create Dictionary    arg=value
@@ -183,73 +195,96 @@ Caller does not see modifications to varargs
     Should Be True    @{v2} == ['list2']
 
 Invalid Arguments Spec - Invalid argument syntax
-    [Documentation]    FAIL Invalid argument specification: Invalid argument syntax 'no deco'.
+    [Documentation]    FAIL
+    ...    Invalid argument specification: Invalid argument syntax 'no deco'.
     Invalid argument syntax
 
 Invalid Arguments Spec - Non-default after defaults
-    [Documentation]    FAIL Invalid argument specification: Non-default argument after default arguments.
+    [Documentation]    FAIL
+    ...    Invalid argument specification: Non-default argument after default arguments.
     Non-default after defaults
 
+Invalid Arguments Spec - Default with varargs
+    [Documentation]    FAIL
+    ...    Invalid argument specification: Only normal arguments accept default values, list arguments like '\@{varargs}' do not.
+    Default with varargs
+
+Invalid Arguments Spec - Default with kwargs
+    [Documentation]    FAIL
+    ...    Invalid argument specification: Only normal arguments accept default values, dictionary arguments like '&{kwargs}' do not.
+    Default with kwargs
+
 Invalid Arguments Spec - Kwargs not last
-    [Documentation]    FAIL Invalid argument specification: Only last argument can be kwargs.
+    [Documentation]    FAIL
+    ...    Invalid argument specification: Only last argument can be kwargs.
     Kwargs not last
+
+Invalid Arguments Spec - Multiple errors
+    [Documentation]    FAIL
+    ...    Invalid argument specification: Multiple errors:
+    ...    - Invalid argument syntax 'invalid'.
+    ...    - Non-default argument after default arguments.
+    ...    - Cannot have multiple varargs.
+    ...    - Only last argument can be kwargs.
+    Multiple errors
 
 *** Keywords ***
 A 0
-    [Return]    a_0
+    RETURN    a_0
 
 A 0 B
-    [Return]    a_0_b
+    RETURN    a_0_b
 
 A 1
     [Arguments]    ${arg}
-    [Return]    a_1: ${arg}
+    RETURN    a_1: ${arg}
 
 A 3
     [Arguments]    ${arg1}    ${arg2}    ${arg3}
-    [Return]    a_3: ${arg1} ${arg2} ${arg3}
+    RETURN    a_3: ${arg1} ${arg2} ${arg3}
 
 A 0 1
     [Arguments]    ${arg}=default
-    [Return]    a_0_1: ${arg}
+    RETURN    a_0_1: ${arg}
 
 A 1 3
     [Arguments]    ${arg1}    ${arg2}=default    ${arg3}=default
-    [Return]    a_1_3: ${arg1} ${arg2} ${arg3}
+    RETURN    a_1_3: ${arg1} ${arg2} ${arg3}
 
 A 0 N
     [Arguments]    @{args}
     ${ret} =    Catenate    @{args}
-    [Return]    a_0_n: ${ret}
+    RETURN    a_0_n: ${ret}
 
 A 1 N
     [Arguments]    ${arg}    @{args}
     ${ret} =    Catenate    @{args}
-    [Return]    a_1_n: ${arg} ${ret}
+    RETURN    a_1_n: ${arg} ${ret}
 
 A 1 2 N
     [Arguments]    ${arg1}    ${arg2}=default    @{args}
     ${ret} =    Catenate    @{args}
-    [Return]    a_1_2_n: ${arg1} ${arg2} ${ret}
+    RETURN    a_1_2_n: ${arg1} ${arg2} ${ret}
 
 Default With Variable
     [Arguments]    ${arg}=${VAR}
-    [Return]    ${arg}
+    RETURN    ${arg}
 
 Default With Non-Existing Variable
     [Arguments]    ${arg}=${NON EXISTING}
+    No operation
 
 Default With None Variable
     [Arguments]    ${arg}=${None}
-    [Return]    ${arg}
+    RETURN    ${arg}
 
 Default With Number Variable
     [Arguments]    ${arg}=${1e3}
-    [Return]    ${arg}
+    RETURN    ${arg}
 
 Default With Extended Variable Syntax
     [Arguments]    ${arg}=${VAR.upper()}
-    [Return]    ${arg}
+    RETURN    ${arg}
 
 Default With Variable Based On Earlier Argument
     [Arguments]    ${a}=a    ${b}=b    ${c}=${a}+${b}    ${d}=${c.upper()}    ${e}=\${d}on\\t escape (\\${a})
@@ -265,10 +300,11 @@ Default With List Variable
     Append To List    ${b}    foo
     Should Be True    $a == ['foo']
     Should Be True    $b == ['With', 'three', 'values', 'foo'] != $LIST
-    [Return]    ${a}
+    RETURN    ${a}
 
 Default With Invalid List Variable
     [Arguments]    ${invalid}=@{VAR}
+    No operation
 
 Default With Dict Variable
     [Arguments]    ${a}=&{EMPTY}    ${b}=&{DICT}
@@ -279,10 +315,15 @@ Default With Dict Variable
     ${b.c} =    Set Variable    value
     Should Be True    $a == {'new': 'value'}
     Should Be True    $b == {'a': 'override', 'b': 2, 'c': 'value'} != $DICT
-    [Return]    ${a}
+    RETURN    ${a}
 
 Default With Invalid Dict Variable
     [Arguments]    ${invalid}=&{VAR}
+    No operation
+
+Argument With `=` In Name
+    [Arguments]    ${=}    ${==}==    ${===}=${=}
+    RETURN    ${=}-${==}-${===}
 
 Mutate Lists
     [Arguments]    ${list1}    @{list2}
@@ -295,12 +336,24 @@ Mutate Lists
 
 Invalid argument syntax
     [Arguments]    no deco
-    No Operation
+    Fail    Not executed
 
 Non-default after defaults
     [Arguments]    ${named}=value    ${positional}
-    No Operation
+    Fail    Not executed
+
+Default with varargs
+    [Arguments]    @{varargs}=invalid
+    Fail    Not executed
+
+Default with kwargs
+    [Arguments]    &{kwargs}=invalid
+    Fail    Not executed
 
 Kwargs not last
     [Arguments]    &{kwargs}    ${positional}
-    No Operation
+    Fail    Not executed
+
+Multiple errors
+    [Arguments]    invalid    ${optional}=default    ${required}    @{too}    @{many}    &{kwargs}    ${x}
+    Fail    Not executed

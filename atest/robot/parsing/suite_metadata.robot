@@ -12,10 +12,14 @@ Metadata
     NAME    Value
 
 Metadata In Multiple Columns
-    Multiple columns          Value in multiple columns
+    Multiple columns          Value in${SPACE*4}multiple${SPACE*4}columns
 
 Metadata In Multiple Lines
-    Multiple lines            Metadata in multiple lines\nis parsed using\nsame semantics as documentation.
+    Multiple lines            Metadata in multiple lines
+    ...                       is parsed using
+    ...                       same semantics${SPACE*4}as${SPACE*4}documentation.
+    ...                       | table |
+    ...                       |${SPACE*3}!${SPACE*3}|
 
 Metadata With Variables
     Variables                 Version: 1.2
@@ -34,5 +38,6 @@ Unescaping Metadata In Setting Table
 
 *** Keywords ***
 Validate metadata
-    [Arguments]    ${name}    ${value}
+    [Arguments]    ${name}    @{lines}
+    ${value} =    Catenate    SEPARATOR=\n    @{lines}
     Should be Equal    ${SUITE.metadata['${name}']}    ${value}

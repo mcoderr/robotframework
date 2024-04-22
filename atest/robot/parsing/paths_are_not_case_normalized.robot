@@ -7,8 +7,8 @@ Suite name is not case normalized
     Should Be Equal    ${SUITE.name}    suiTe 8
 
 Suite source should not be case normalized
-    Should End With    ${SUITE.source}    multiple_suites${/}suiTe_8.robot
+    Should Be True    str($SUITE.source).endswith(r'multiple_suites${/}suiTe_8.robot')
 
 Outputs are not case normalized
-    Check stdout contains    ${/}LOG.html
-    Check stdout contains    ${/}RaP.html
+    Stdout Should Contain    ${/}LOG.html
+    Stdout Should Contain    ${/}RaP.html

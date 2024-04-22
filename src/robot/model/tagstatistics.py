@@ -16,23 +16,19 @@
 from itertools import chain
 import re
 
-from robot.utils import NormalizedDict, unicode
+from robot.utils import NormalizedDict
 
-from .stats import CombinedTagStat, CriticalTagStat, TagStat
-from .tags import SingleTagPattern, TagPatterns
+from .stats import CombinedTagStat, TagStat
+from .tags import TagPatterns
 
 
-class TagStatistics(object):
+class TagStatistics:
     """Container for tag statistics."""
 
-    def __init__(self, critical_stats, non_critical_stats, combined_stats):
+    def __init__(self, combined_stats):
         #: Dictionary, where key is the name of the tag as a string and value
         #: is an instance of :class:`~robot.model.stats.TagStat`.
         self.tags = NormalizedDict(ignore='_')
-        #: List of :class:`~robot.model.stats.CriticalTagStat` objects.
-        self.critical = critical_stats
-        #: List of :class:`~robot.model.stats.CriticalTagStat` objects.
-        self.non_critical = non_critical_stats
         #: List of :class:`~robot.model.stats.CombinedTagStat` objects.
         self.combined = combined_stats
 
@@ -40,55 +36,45 @@ class TagStatistics(object):
         visitor.visit_tag_statistics(self)
 
     def __iter__(self):
-        crits = self._get_critical_and_non_critical_matcher()
-        tags = [t for t in self.tags.values() if t.name not in crits]
-        return iter(sorted(chain(self.critical, self.non_critical,
-                                 self.combined, tags)))
-
-    def _get_critical_and_non_critical_matcher(self):
-        crits = [stat for stat in self.critical + self.non_critical
-                 if isinstance(stat.pattern, SingleTagPattern)]
-        return NormalizedDict([(unicode(stat.pattern), None) for stat in crits],
-                              ignore='_')
+        return iter(sorted(chain(self.combined, self.tags.values())))
 
 
-class TagStatisticsBuilder(object):
+class TagStatisticsBuilder:
 
-    def __init__(self, criticality=None, included=None, excluded=None,
-                 combined=None, docs=None, links=None):
+    def __init__(self, included=None, excluded=None, combined=None, docs=None,
+                 links=None):
         self._included = TagPatterns(included)
         self._excluded = TagPatterns(excluded)
+        self._reserved = TagPatterns('robot:*')
         self._info = TagStatInfo(docs, links)
-        self.stats = TagStatistics(
-            self._info.get_critical_stats(criticality),
-            self._info.get_critical_stats(criticality, critical=False),
-            self._info.get_combined_stats(combined)
-        )
+        self.stats = TagStatistics(self._info.get_combined_stats(combined))
 
     def add_test(self, test):
         self._add_tags_to_statistics(test)
-        self._add_to_critical_and_combined_statistics(test)
+        self._add_to_combined_statistics(test)
 
     def _add_tags_to_statistics(self, test):
         for tag in test.tags:
-            if self._is_included(tag):
+            if self._is_included(tag) and not self._suppress_reserved(tag):
                 if tag not in self.stats.tags:
                     self.stats.tags[tag] = self._info.get_stat(tag)
                 self.stats.tags[tag].add_test(test)
 
     def _is_included(self, tag):
-        if self._included and not self._included.match(tag):
+        if self._included and tag not in self._included:
             return False
-        return not self._excluded.match(tag)
+        return tag not in self._excluded
 
-    def _add_to_critical_and_combined_statistics(self, test):
-        stats = self.stats
-        for stat in stats.critical + stats.non_critical + stats.combined:
+    def _suppress_reserved(self, tag):
+        return tag in self._reserved and tag not in self._included
+
+    def _add_to_combined_statistics(self, test):
+        for stat in self.stats.combined:
             if stat.match(test.tags):
                 stat.add_test(test)
 
 
-class TagStatInfo(object):
+class TagStatInfo:
 
     def __init__(self, docs=None, links=None):
         self._docs = [TagStatDoc(*doc) for doc in docs or []]
@@ -96,18 +82,6 @@ class TagStatInfo(object):
 
     def get_stat(self, tag):
         return TagStat(tag, self.get_doc(tag), self.get_links(tag))
-
-    def get_critical_stats(self, criticality, critical=True):
-        if not criticality:
-            return []
-        tag_patterns = (criticality.critical_tags
-                        if critical else criticality.non_critical_tags)
-        return [self._get_critical_stat(p, critical) for p in tag_patterns]
-
-    def _get_critical_stat(self, pattern, critical):
-        name = unicode(pattern)
-        return CriticalTagStat(pattern, name, critical, self.get_doc(name),
-                               self.get_links(name))
 
     def get_combined_stats(self, combined=None):
         return [self._get_combined_stat(*comb) for comb in combined or []]
@@ -124,7 +98,7 @@ class TagStatInfo(object):
         return [link.get_link(tag) for link in self._links if link.match(tag)]
 
 
-class TagStatDoc(object):
+class TagStatDoc:
 
     def __init__(self, pattern, doc):
         self._matcher = TagPatterns(pattern)
@@ -134,8 +108,8 @@ class TagStatDoc(object):
         return self._matcher.match(tag)
 
 
-class TagStatLink(object):
-    _match_pattern_tokenizer = re.compile('(\*|\?+)')
+class TagStatLink:
+    _match_pattern_tokenizer = re.compile(r'(\*|\?+)')
 
     def __init__(self, pattern, link, title):
         self._regexp = self._get_match_regexp(pattern)

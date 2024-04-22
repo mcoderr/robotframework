@@ -7,24 +7,29 @@ Library documentation tool (Libdoc)
    :depth: 1
    :local:
 
-Libdoc is Robot Framework's built-in tool for generating keyword documentation
-for test libraries and resource files in HTML and XML formats. The former
-format is suitable for humans and the latter for RIDE_ and other
-tools. Libdoc also has few special commands to show library or
-resource information on the console.
+Libdoc is Robot Framework's built-in tool that can generate documentation for
+Robot Framework libraries and resource files. It can generate HTML documentation
+for humans as well as machine readable spec files in XML and JSON formats.
+Libdoc also has few special commands to show library or resource information
+on the console.
 
 Documentation can be created for:
 
-- test libraries implemented with Python__ or Java__ using the normal
-  static library API,
-- test libraries using the `dynamic API`__, including remote libraries, and
-- `resource files`_.
+- libraries implemented using the normal static library API__,
+- libraries using the `dynamic API`__, including remote libraries,
+- `resource files`_,
+- `suite files`_, and
+- `suite initialization files`_.
 
-Additionally it is possible to use XML spec created by Libdoc
+Additionally it is possible to use XML and JSON spec files created by Libdoc
 earlier as an input.
 
+.. note:: Support for generating documentation for suite files and suite
+          initialization files is new in Robot Framework 6.0.
+
+.. note:: The support for the JSON spec files is new in Robot Framework 4.0.
+
 __ `Python libraries`_
-__ `Java libraries`_
 __ `Dynamic libraries`_
 
 General usage
@@ -35,49 +40,69 @@ Synopsis
 
 ::
 
-    python -m robot.libdoc [options] library_or_resource output_file
-    python -m robot.libdoc [options] library_or_resource list|show|version [names]
+    libdoc [options] library_or_resource output_file
+    libdoc [options] library_or_resource list|show|version [names]
 
 Options
 ~~~~~~~
 
-  -f, --format <html|xml>  Specifies whether to generate HTML or XML output.
-                           If this options is not used, the format is got
-                           from the extension of the output file.
+  -f, --format <html|xml|json|libspec>
+                           Specifies whether to generate an HTML output for humans or
+                           a machine readable spec file in XML or JSON format. The
+                           `libspec` format means XML spec with documentations converted
+                           to HTML. The default format is got from the output file
+                           extension.
+  -s, --specdocformat <raw|html>
+                           Specifies the documentation format used with XML and JSON
+                           spec files. `raw` means preserving the original documentation
+                           format and `html` means converting documentation to HTML. The
+                           default is `raw` with XML spec files and `html` with JSON
+                           specs and when using the special `libspec` format.
+                           New in Robot Framework 4.0.
   -F, --docformat <robot|html|text|rest>
                            Specifies the source documentation format. Possible
                            values are Robot Framework's documentation format,
                            HTML, plain text, and reStructuredText. Default value
                            can be specified in test library source code and
                            the initial default value is `robot`.
+  --theme <dark|light|none>
+                           Use dark or light HTML theme. If this option is not used,
+                           or the value is `none`, the theme is selected based on
+                           the browser color scheme. Only applicable with HTML outputs.
+                           New in Robot Framework 6.0.
   -N, --name <newname>     Sets the name of the documented library or resource.
   -V, --version <newversion>  Sets the version of the documented library or
                            resource. The default value for test libraries is
-                           `got from the source code`__.
+                           `defined in the source code`__.
   -P, --pythonpath <path>  Additional locations where to search for libraries
                            and resources similarly as when `running tests`__.
-  -E, --escape <what:with>  Deprecated. Use console escape mechanism instead.
+  --quiet                  Do not print the path of the generated output file
+                           to the console. New in Robot Framework 4.0.
   -h, --help               Prints this help.
 
-__ `Specifying library version`_
+__ `Library version`_
 __ `Using --pythonpath option`_
 
-Alternative execution
-~~~~~~~~~~~~~~~~~~~~~
+Executing Libdoc
+~~~~~~~~~~~~~~~~
 
-Although Libdoc is used only with Python in the synopsis above, it works
-also with Jython and IronPython. When documenting Java libraries, Jython is
-actually required.
+The easiest way to run Libdoc is using the `libdoc` command created as part of
+the normal installation::
 
-In the synopsis Libdoc is executed as an installed module
-(`python -m robot.libdoc`). In addition to that, it can be run also as
-a script::
+    libdoc ExampleLibrary ExampleLibrary.html
 
-    python path/robot/libdoc.py [options] arguments
+Alternatively it is possible to execute the `robot.libdoc` module directly.
+This approach is especially useful if you have installed Robot Framework using
+multiple Python versions and want to use a specific version with Libdoc::
 
-Executing as a script can be useful if you have done `manual installation`_
-or otherwise just have the :file:`robot` directory with the source code
-somewhere in your system.
+    python -m robot.libdoc ExampleLibrary ExampleLibrary.html
+    python3.9 -m robot.libdoc ExampleLibrary ExampleLibrary.html
+
+Yet another alternative is running the `robot.libdoc` module as a script::
+
+    python path/to/robot/libdoc.py ExampleLibrary ExampleLibrary.html
+
+.. note:: The separate `libdoc` command is new in Robot Framework 4.0.
 
 Specifying library or resource file
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -87,9 +112,14 @@ Python libraries and dynamic libraries with name or path
 
 When documenting libraries implemented with Python or that use the
 `dynamic library API`_, it is possible to specify the library either by
-using just the library name or path to the library source code.
+using just the library name or path to the library source code::
+
+   libdoc ExampleLibrary ExampleLibrary.html
+   libdoc src/ExampleLibrary.py docs/ExampleLibrary.html
+
 In the former case the library is searched using the `module search path`_
-and its name must be in the same format as in Robot Framework test data.
+and its name must be in the same format as when `importing libraries`_ in
+Robot Framework test data.
 
 If these libraries require arguments when they are imported, the arguments
 must be catenated with the library name or path using two colons like
@@ -97,42 +127,138 @@ must be catenated with the library name or path using two colons like
 provides or otherwise alter its documentation, it might be a good idea to use
 :option:`--name` option to also change the library name accordingly.
 
-Java libraries with path
-''''''''''''''''''''''''
-
-A Java test library implemented using the `static library API`_ can be
-specified by giving the path to the source code file containing the
-library implementation. When using Java 9 or newer, documentation can be
-generated without external dependencies, but with older Java versions the
-:file:`tools.jar`, which is part of the Java JDK distribution, must be found
-from the ``CLASSPATH`` when Libdoc is executed. Notice that generating
-documentation for Java libraries works only with Jython.
-
-.. note:: Generating documentation without :file:`tools.jar` when using
-          Java 9 or newer is a new feature in Robot Framework 3.1.
-
 Resource files with path
 ''''''''''''''''''''''''
 
-Resource files must always be specified using a path. If the path does
-not exist, resource files are also searched from all directories in
-the `module search path`_ similarly as when executing test cases.
+Resource files must always be specified using a path::
+
+    libdoc example.resource example.html
+
+If the path does not exist, resource files are also searched from all directories
+in the `module search path`_ similarly as when executing test cases.
+
+Libdoc spec files
+'''''''''''''''''
+
+Earlier generated Libdoc XML or JSON spec files can also be used as inputs.
+This works if spec files use either :file:`*.xml`, :file:`*.libspec` or
+:file:`*.json` extension::
+
+   libdoc Example.xml Example.html
+   libdoc Example.libspec Example.html
+   libdoc Example.json Example.html
+
+.. note:: Support for the :file:`*.libspec` extension is new in
+          Robot Framework 3.2.
+
+.. note:: Support for the :file:`*.json` extension is new in
+          Robot Framework 4.0.
 
 Generating documentation
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-When generating documentation in HTML or XML format, the output file must
-be specified as the second argument after the library/resource name or path.
-Output format is got automatically from the extension but can also be set
-using the :option:`--format` option.
+Libdoc can generate documentation in HTML (for humans) and XML or JSON (for tools)
+formats. The file where to write the documentation is specified as the second
+argument after the library/resource name or path, and the output format is
+got from the output file extension by default.
 
-Examples::
+Libdoc HTML documentation
+'''''''''''''''''''''''''
 
-   python -m robot.libdoc OperatingSystem OperatingSystem.html
-   python -m robot.libdoc --name MyLibrary Remote::http://10.0.0.42:8270 MyLibrary.xml
-   python -m robot.libdoc test/resource.html doc/resource_doc.html
-   jython -m robot.libdoc --version 1.0 MyJavaLibrary.java MyJavaLibrary.html
-   jython -m robot.libdoc my.organization.DynamicJavaLibrary my.organization.DynamicJavaLibrary.xml
+Most Robot Framework libraries use Libdoc to generate library documentation
+in HTML format. This format is thus familiar for most people who have used
+Robot Framework. A simple example can be seen below, and it has been generated
+based on the example found a `bit later in this section`__.
+
+.. figure:: src/SupportingTools/ExampleLibrary.png
+   :target: src/SupportingTools/ExampleLibrary.html
+   :width: 581
+
+The HTML documentation starts with general library introduction, continues
+with a section about configuring the library when it is imported (when
+applicable), and finally has shortcuts to all keywords and the keywords
+themselves. The magnifying glass icon on the lower right corner opens the
+keyword search dialog that can also be opened by simply pressing the `s` key.
+
+Libdoc automatically creates HTML documentation if the output file extension
+is :file:`*.html`. If there is a need to use some other extension, the
+format can be specified explicitly with the :option:`--format` option.
+
+::
+
+   libdoc OperatingSystem OperatingSystem.html
+   libdoc --name MyLibrary Remote::http://10.0.0.42:8270 MyLibrary.html
+   libdoc --format HTML test/resource.robot doc/resource.htm
+
+__ `Python libraries`_
+
+Libdoc XML spec files
+'''''''''''''''''''''
+
+Libdoc can also generate documentation in XML format that is suitable for
+external tools such as editors. It contains all the same information as
+the HTML format but in a machine readable format.
+
+XML spec files also contain library and keyword source information so that
+the library and each keyword can have source path (`source` attribute) and
+line number (`lineno` attribute). The source path is relative to the directory
+where the spec file is generated thus does not refer to a correct file if
+the spec is moved. The source path is omitted with keywords if it is
+the same as with the library, and both the source path and the line number
+are omitted if getting them from the library fails for whatever reason.
+
+Libdoc automatically uses the XML format if the output file extension is
+:file:`*.xml` or :file:`*.libspec`. When using the special :file:`*.libspec`
+extension, Libdoc automatically enables the options `-f XML -s HTML` which means
+creating an XML output file where keyword documentation is converted to HTML.
+If needed, the format can be explicitly set with the :option:`--format` option.
+
+::
+
+   libdoc OperatingSystem OperatingSystem.xml
+   libdoc test/resource.robot doc/resource.libspec
+   libdoc --format xml MyLibrary MyLibrary.spec
+   libdoc --format xml -s html MyLibrary MyLibrary.xml
+
+The exact Libdoc spec file format is documented with an `XML schema`__ (XSD)
+at https://github.com/robotframework/robotframework/tree/master/doc/schema.
+The spec file format may change between Robot Framework major releases.
+
+To make it easier for external tools to know how to parse a certain
+spec file, the spec file root element has a dedicated `specversion`
+attribute. It was added in Robot Framework 3.2 with value `2` and earlier
+spec files can be considered to have version `1`. The spec version will
+be incremented in the future if and when changes are made.
+Robot Framework 4.0 introduced new spec version `3` which is incompatible
+with earlier versions.
+
+.. note:: The `XML:HTML` format introduced in Robot Framework 3.2. has been
+          replaced by the format `LIBSPEC` ot the option combination
+          `--format XML --specdocformat HTML`.
+
+.. note:: Including source information and spec version are new in Robot
+          Framework 3.2.
+
+__ https://en.wikipedia.org/wiki/XML_Schema_(W3C)
+
+Libdoc JSON spec files
+''''''''''''''''''''''
+
+Since Robot Framework 4.0 Libdoc can also generate documentation in JSON
+format that is suitable for external tools such as editors or web pages.
+It contains all the same information as the HTML format but in a machine
+readable format.
+
+Similar to XML spec files the JSON spec files contain all information and
+can also be used as input to Libdoc. From that format any other output format
+can be created. By default the library documentation strings are converted
+to HTML format within the JSON output file.
+
+The exact JSON spec file format is documented with an `JSON schema`__
+at https://github.com/robotframework/robotframework/tree/master/doc/schema.
+The spec file format may change between Robot Framework major releases.
+
+__ https://json-schema.org/
 
 Viewing information on console
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -158,23 +284,22 @@ insensitive. Both also accept `*` and `?` as wildcards.
 
 Examples::
 
-  python -m robot.libdoc Dialogs list
-  python -m robot.libdoc SeleniumLibrary list browser
-  python -m robot.libdoc Remote::10.0.0.42:8270 show
-  python -m robot.libdoc Dialogs show PauseExecution execute*
-  python -m robot.libdoc SeleniumLibrary show intro
-  python -m robot.libdoc SeleniumLibrary version
+  libdoc Dialogs list
+  libdoc SeleniumLibrary list browser
+  libdoc Remote::10.0.0.42:8270 show
+  libdoc Dialogs show PauseExecution execute*
+  libdoc SeleniumLibrary show intro
+  libdoc SeleniumLibrary version
 
 Writing documentation
 ---------------------
 
-This section discusses writing documentation for Python__ and Java__ based test
+This section discusses writing documentation for Python__ based test
 libraries that use the static library API as well as for `dynamic libraries`_
 and `resource files`__. `Creating test libraries`_ and `resource files`_ is
 described in more details elsewhere in the User Guide.
 
 __ `Python libraries`_
-__ `Java libraries`_
 __ `Resource file documentation`_
 
 Python libraries
@@ -188,80 +313,23 @@ a tool tip in links in the generated HTML documentation), and it should
 thus be as describing as possible, but not too long.
 
 The simple example below illustrates how to write the documentation in
-general, and there is a `bit longer example`__ at the end of this
-chapter containing also an example of the generated documentation.
+general. How the HTML documentation generated based on this example looks
+like can be seen above__, and there is also a `bit longer example`__ at
+the end of this chapter.
 
 .. sourcecode:: python
 
-    class ExampleLib:
-        """Library for demo purposes.
+    src/SupportingTools/ExampleLibrary.py
 
-        This library is only used in an example and it doesn't do anything useful.
-        """
+.. tip:: If you library does some initialization work that should not be done
+         when using Libdoc, you can `easily detect is Robot Framework running`__
 
-        def my_keyword(self):
-            """Does nothing."""
-            pass
+.. tip:: For more information on Python documentation strings, see `PEP-257`__.
 
-        def your_keyword(self, arg):
-            """Takes one argument and *does nothing* with it.
-
-            Examples:
-            | Your Keyword | xxx |
-            | Your Keyword | yyy |
-            """
-            pass
-
-.. tip:: If you want to use non-ASCII charactes in the documentation of
-         Python libraries, you must either use UTF-8 as your `source code
-         encoding`__ or create docstrings as Unicode.
-
-         For more information on Python documentation strings, see `PEP-257`__.
-
+__ `Libdoc HTML documentation`_
 __ `Libdoc example`_
-__ http://www.python.org/dev/peps/pep-0263
+__ `Detecting is Robot Framework running`_
 __ http://www.python.org/dev/peps/pep-0257
-
-Java libraries
-~~~~~~~~~~~~~~
-
-Documentation for Java libraries that use the `static library API`_ is written
-as normal `Javadoc comments`__ for the library class and methods. In this case
-Libdoc actually uses the Javadoc tool internally, and thus
-:file:`tools.jar` containing it must be in ``CLASSPATH``. This jar file is part
-of the normal Java SDK distribution and ought to be found from :file:`bin`
-directory under the Java SDK installation.
-
-The following simple example has exactly same documentation (and functionality)
-than the earlier Python example.
-
-.. sourcecode:: java
-
-    /**
-     * Library for demo purposes.
-     *
-     * This library is only used in an example and it doesn't do anything useful.
-     */
-    public class ExampleLib {
-
-        /**
-         * Does nothing.
-         */
-        public void myKeyword() {
-        }
-
-        /**
-         * Takes one argument and *does nothing* with it.
-         *
-         * Examples:
-         * | Your Keyword | xxx |
-         * | Your Keyword | yyy |
-         */
-        public void yourKeyword(String arg) {
-        }
-    }
-
-__ http://en.wikipedia.org/wiki/Javadoc
 
 Dynamic libraries
 ~~~~~~~~~~~~~~~~~
@@ -281,10 +349,9 @@ Importing section
 ~~~~~~~~~~~~~~~~~
 
 A separate section about how the library is imported is created based on its
-initialization methods. For a Python library, if it has an  `__init__`
+initialization methods. If the library has an  `__init__`
 method that takes arguments in addition to `self`, its documentation and
-arguments are shown. For a Java library, if it has a public constructor that
-accepts arguments, all its public constructors are shown.
+arguments are shown.
 
 .. sourcecode:: python
 
@@ -312,7 +379,7 @@ Libdoc. First line of the documentation (until the first
 documentation similarly as with test libraries.
 
 Also the resource file itself can have :setting:`Documentation` in the
-Setting table for documenting the whole resource file.
+Setting section for documenting the whole resource file.
 
 Possible variables in resource files can not be documented.
 
@@ -336,14 +403,14 @@ Possible variables in resource files can not be documented.
        ...    | Your Keyword | yyy |
        No Operation
 
-__ `Newlines in test data`_
+__ `Newlines`_
 
 Documentation syntax
 --------------------
 
 Libdoc supports documentation in Robot Framework's own `documentation
 syntax`_, HTML, plain text, and reStructuredText_. The format to use can be
-specified in `test library source code`__ using `ROBOT_LIBRARY_DOC_FORMAT`
+specified in `library source code`__ using `ROBOT_LIBRARY_DOC_FORMAT`
 attribute or given from the command line using :option:`--docformat (-F)` option.
 In both cases the possible case-insensitive values are `ROBOT` (default),
 `HTML`, `TEXT` and `reST`.
@@ -352,7 +419,7 @@ Robot Framework's own documentation format is the default and generally
 recommended format. Other formats are especially useful when using existing
 code with existing documentation in test libraries.
 
-__ `Specifying documentation format`_
+__ `Documentation format`_
 
 Robot Framework documentation syntax
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -380,6 +447,47 @@ line.
 
     def my_keyword():
         """Nothing more to see here."""
+
+Creating table of contents automatically
+''''''''''''''''''''''''''''''''''''''''
+
+With bigger libraries it is often useful to add a table of contents to
+the library introduction. When using the Robot Framework documentation format,
+this can be done automatically by adding a special `%TOC%` marker into a line
+on its own. The table of contents is created based on the top-level
+`section titles`_ (e.g. `= Section =`) used in the introduction. In addition
+to them, the TOC also gets links to the `automatically created sections`__
+for shortcuts and keywords as well as for importing and tags sections when
+applicable.
+
+.. sourcecode:: python
+
+    """Example library demonstrating TOC generation.
+
+    The %TOC% marker only creates the actual table of contents and possible
+    header or other explanation needs to be added separately like done below.
+
+    == Table of contents ==
+
+    %TOC%
+
+    = Section title =
+
+    The top-level section titles are automatically added to the TOC.
+
+    = Second section =
+
+    == Sub section ==
+
+    Sub section titles are not added to the TOC.
+    """
+
+    def my_keyword():
+        """Nothing more to see here."""
+
+.. note:: Automatic TOC generation is a new feature in Robot Framework 3.2.
+
+__ `Linking to automatic sections`_
 
 HTML documentation syntax
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -445,8 +553,7 @@ reStructuredText, `linking to keywords`_ requires them to be escaped like
 :codesc:`\\\`My Keyword\\\``.
 
 One of the nice features that reStructured supports is the ability to mark code
-blocks that can be syntax highlighted. The code block syntax has always worked
-with Robot Framework, but they are highlighted only in RF 3.0.1 and newer.
+blocks that can be syntax highlighted.
 Syntax highlight requires additional Pygments_ module and supports all the
 languages that Pygments supports.
 
@@ -530,11 +637,12 @@ Linking to automatic sections
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The documentation generated by Libdoc always contains sections
-for overall library introduction, shortcuts to keywords, and for
-actual keywords.  If a library itself takes arguments, there is also
-separate `importing section`_.
+for overall library introduction and for
+keywords.  If a library itself takes arguments, there is also
+separate `importing section`_. If any of the keywords has tags__,
+a separate selector for them is also shown in the overview.
 
-All these sections act as targets that can be linked, and the possible
+All the sections act as targets that can be linked, and the possible
 target names are listed in the table below. Using these targets is
 shown in the example of the next section.
 
@@ -546,9 +654,14 @@ shown in the example of the next section.
    ================  ===========================================================
    Introduction      :codesc:`\`introduction\`` and :codesc:`\`library introduction\``
    Importing         :codesc:`\`importing\`` and :codesc:`\`library importing\``
-   Shortcuts         :codesc:`\`shortcuts\``
    Keywords          :codesc:`\`keywords\``
    ================  ===========================================================
+
+.. note:: Before Robot Framework 4.0 there were also sections for tags and shortcuts.
+          In Robot Framework 4.0 these have been removed in favor of the overview menu. This means
+          that prior linking to shortcuts or tags sections does not work.
+
+__ `Keyword tags`_
 
 Linking to custom sections
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -584,41 +697,51 @@ custom sections:
 Representing arguments
 ----------------------
 
-Libdoc handles keywords' arguments automatically so that
-arguments specified for methods in libraries or user keywords in
-resource files are listed in a separate column. User keyword arguments
-are shown without `${}` or `@{}` to make arguments look
-the same regardless where keywords originated from.
+Libdoc shows information about keywords' arguments automatically.
 
-Regardless how keywords are actually implemented, Libdoc shows arguments
-similarly as when creating keywords in Python. This formatting is explained
-more thoroughly in the table below.
+Included information
+~~~~~~~~~~~~~~~~~~~~
 
-.. table:: How Libdoc represents arguments
-   :class: tabular
+The following information is shown for all keywords regardless are they implemented
+in libraries or in resource files:
 
-   +--------------------+----------------------------+------------------------+
-   |      Arguments     |      Now represented       |        Examples        |
-   +====================+============================+========================+
-   | No arguments       | Empty column.              |                        |
-   +--------------------+----------------------------+------------------------+
-   | One or more        | List of strings containing | | `one_argument`       |
-   | argument           | argument names.            | | `a1, a2, a3`         |
-   +--------------------+----------------------------+------------------------+
-   | Default values     | Default values separated   | | `arg=default value`  |
-   | for arguments      | from names with `=`.       | | `a, b=1, c=2`        |
-   +--------------------+----------------------------+------------------------+
-   | Variable number    | Last (or second last with  | | `*varargs`           |
-   | of arguments       | kwargs) argument has `*`   | | `a, b=42, *rest`     |
-   | (varargs)          | before its name.           |                        |
-   +--------------------+----------------------------+------------------------+
-   | Free keyword       | Last arguments has         | | `**kwargs`           |
-   | arguments (kwargs) | `**` before its name.      | | `a, b=42, **kws`     |
-   |                    |                            | | `*varargs, **kwargs` |
-   +--------------------+----------------------------+------------------------+
+- Argument name. User keyword arguments are shown without the `${}` decoration
+  to make arguments look the same regardless where keywords originate from.
+- Marker telling is the argument `positional-only`__, `named-only`__,
+  `free positional`__, `free named`__, or `normal argument`__ that can be given
+  either by position or by name.
+- Possible default value. Shown like `= 42`.
+- Possible type. Shown like `<int>`. Can be a link to type documentation as explained
+  in the next section.
+
+__ `Positional-only arguments`_
+__ `Keyword-only arguments`_
+__ varargs-library_
+__ kwargs-library_
+__ `Keyword arguments`_
 
 When referring to arguments in keyword documentation, it is recommended to
 use `inline code style <inline styles_>`__ like :codesc:`\`\`argument\`\``.
+
+Automatically listing type documentation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As mentioned above, Libdoc automatically shows possible type information when
+listing arguments. If the type is a custom type based on Enum_ or TypedDict_,
+the type is `automatically converted`__, or the type has `custom converter`__,
+also the type itself is listed separately to show more information about it.
+When these types are used in arguments, the type name also becomes a link
+to the type information.
+
+All listed data types show possible type documentation as well as what argument
+types are supported. In addition to that, types based on `Enum` list available
+members and types based on `TypedDict` show the dictionary structure.
+
+.. note:: Automatically listing types based on `Enum` and `TypedDict` is new
+          in Robot Framework 4.0. Listing other types is new in Robot Framework 5.0.
+
+__ `Supported conversions`_
+__ `Custom argument converters`_
 
 Libdoc example
 --------------

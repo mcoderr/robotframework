@@ -104,11 +104,6 @@ Misspelled Env Var
     ${THISS_ENV_VAR_IS_SET} =    Set Variable    Not env var and thus not recommended
     Log    %{THISS_ENV_VAR_IS_SET}
 
-Misspelled Java System Property
-    [Documentation]    FAIL    Environment variable '%{user.hima}' not found. Did you mean:
-    ...    ${INDENT}\%{user.home}
-    Log    %{user.hima}
-
 Misspelled Env Var With Internal Variables
     [Documentation]    FAIL    Environment variable '%{YET_ANOTHER_ENV_VAR}' not found. Did you mean:
     ...    ${INDENT}\%{ANOTHER_ENV_VAR}
@@ -163,7 +158,7 @@ Multiple Missing Variables
     Log Many    ${SSTRING}    @{LLIST}
 
 Empty Variable Name
-    [Documentation]    FAIL    Invalid variable name '${}'.
+    [Documentation]    FAIL    Variable '\${}' not found.
     Log    ${}
 
 Environment Variable With Misspelled Internal Variables

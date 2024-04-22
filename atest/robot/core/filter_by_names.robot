@@ -17,6 +17,12 @@ ${SUITE DIR}       misc/suites
     Run And Check Tests    --test *one --test Fi?st    First    Second One    Third One
     Run And Check Tests    --test [Great]Lob[sterB]estCase[!3-9]    GlobTestCase1    GlobTestCase2
 
+--test is cumulative with --include
+    Run And Check Tests    --test fifth --include t1      First    Fifth
+
+--exclude wins ovet --test
+    Run And Check Tests    --test fi* --exclude t1    Fifth
+
 --test not matching
     Run Failing Test
     ...    Suite 'Many Tests' contains no tests matching name 'notexists'.
@@ -37,7 +43,7 @@ ${SUITE DIR}       misc/suites
 
 --suite with . in name
     Run Suites    --suite sub.suite.4
-    Should Contain Suites    ${SUITE}    Subsuites2
+    Should Contain Suites    ${SUITE}    Custom name for 📂 'subsuites2'
     Should Contain Tests   ${SUITE}    Test From Sub Suite 4
     Should Not Contain Tests    ${SUITE}   SubSuite3 First    SubSuite3 Second
 
@@ -56,47 +62,10 @@ Parent suite init files are processed
     Should Be True    ${SUITE.teardown}
     Check log message    ${SUITE.teardown.msgs[0]}    Default suite teardown
 
-Unnecessary files are not parsed when --suite matches files
-    [Documentation]    Test that only files matching --suite are processed.
-    ...                Additionally __init__ files should never be ignored.
-    Previous Test Should Have Passed    Parent suite init files are processed
-    ${root} =    Normalize Path    ${DATA DIR}/${SUITE DIR}
-    Check Syslog Contains    Parsing directory '${root}'.
-    Check Syslog Contains    Parsing file '${root}${/}tsuite1.robot'.
-    Check Syslog Contains    Ignoring file or directory '${root}${/}tsuite2.robot'.
-    Check Syslog Contains    Parsing file '${root}${/}tsuite3.robot'.
-    Check Syslog Contains    Parsing file '${root}${/}fourth.robot'.
-    Check Syslog Contains    Parsing directory '${root}${/}subsuites'.
-    Check Syslog Contains    Ignoring file or directory '${root}${/}subsuites${/}sub1.robot'.
-    Check Syslog Contains    Ignoring file or directory '${root}${/}subsuites${/}sub2.robot'.
-    Check Syslog Contains    Parsing directory '${root}${/}subsuites2'.
-    Check Syslog Contains    Ignoring file or directory '${root}${/}subsuites2${/}subsuite3.robot'.
-    Check Syslog Contains    Ignoring file or directory '${root}${/}subsuites2${/}sub.suite.4.robot'.
-    Syslog Should Not Contain Regexp    Ignoring file or directory '.*__init__.robot'.
-
 --suite matching directory
     Run Suites    --suite sub?uit[efg]s
     Should Contain Suites    ${SUITE.suites[0]}    Sub1    Sub2
     Should Contain Tests   ${SUITE}    SubSuite1 First    SubSuite2 First
-
-Unnecessary files are not parsed when --suite matches directory
-    [Documentation]    Testing that only files matching to --suite are processed.
-    ...                This time --suite matches directory so all suites under it
-    ...                should be parsed regardless their names.
-    Previous Test Should Have Passed    --suite matching directory
-    ${root} =    Normalize Path    ${DATA DIR}/${SUITE DIR}
-    Check Syslog Contains    Parsing directory '${root}'.
-    Check Syslog Contains    Ignoring file or directory '${root}${/}tsuite1.robot'.
-    Check Syslog Contains    Ignoring file or directory '${root}${/}tsuite2.robot'.
-    Check Syslog Contains    Ignoring file or directory '${root}${/}tsuite3.robot'.
-    Check Syslog Contains    Ignoring file or directory '${root}${/}fourth.robot'.
-    Check Syslog Contains    Parsing directory '${root}${/}subsuites'.
-    Check Syslog Contains    Parsing file '${root}${/}subsuites${/}sub1.robot'.
-    Check Syslog Contains    Parsing file '${root}${/}subsuites${/}sub2.robot'.
-    Check Syslog Contains    Parsing directory '${root}${/}subsuites2'.
-    Check Syslog Contains    Ignoring file or directory '${root}${/}subsuites2${/}subsuite3.robot'.
-    Check Syslog Contains    Ignoring file or directory '${root}${/}subsuites2${/}sub.suite.4.robot'.
-    Syslog Should Not Contain Regexp    Ignoring file or directory '.*__init__.robot'.
 
 --suite with long name matching file
     Run Suites    --suite suites.fourth --suite suites.*.SUB?
@@ -110,18 +79,19 @@ Unnecessary files are not parsed when --suite matches directory
     Should Contain Tests   ${SUITE}    SubSuite1 First    SubSuite2 First
 
 --suite with long name with . in name
-    Run Suites    --suite suites.subsuites2.sub.suite.4
-    Should Contain Suites    ${SUITE}    Subsuites2
+    Run Suites    --suite "suites.Custom name for 📂 'subsuites2'.sub.suite.4"
+    Should Contain Suites    ${SUITE}    Custom name for 📂 'subsuites2'
     Should Contain Tests   ${SUITE}    Test From Sub Suite 4
     Should Not Contain Tests    ${SUITE}   SubSuite3 First    SubSuite3 Second
 
---suite with end of long name
-    Run Suites    --suite Subsuites.Sub?
-    Should Contain Suites    ${SUITE}    Subsuites
-    Should Contain Tests   ${SUITE}   SubSuite1 First    SubSuite2 First
+--suite matching end of long name is not enough anymore
+    [Documentation]    This was supported until RF 7.0.
+    Run Failing Test
+    ...    Suite 'Suites' contains no tests in suite 'Subsuites.Sub?'.
+    ...    --suite Subsuites.Sub?    ${SUITE DIR}
 
 --suite with long name when executing multiple suites
-    Run Suites    -s "Subsuites & Subsuites2.Subsuites.Sub1"    misc/suites/subsuites misc/suites/subsuites2
+    Run Suites    -s "Suite With Prefix & Subsuites.Subsuites.Sub1"    misc/suites/01__suite_with_prefix misc/suites/subsuites
     Should Contain Suites    ${SUITE}              Subsuites
     Should Contain Suites    ${SUITE.suites[0]}    Sub1
     Should Contain Tests     ${SUITE}              SubSuite1 First
@@ -145,10 +115,10 @@ Unnecessary files are not parsed when --suite matches directory
     ...    --suite xxx -N Custom    ${SUITE DIR} ${SUITE FILE}
 
 --suite and --test together
-    [Documentation]    Testing that only tests matching --test which are under suite matching --suite are run.
-    Run Suites    --suite subsuites --suite tsuite3 --test SubSuite1First
-    Should Contain Suites    ${SUITE}    Subsuites
-    Should Contain Tests   ${SUITE}    SubSuite1 First
+    [Documentation]    Validate that only tests matching --test under suites matching --suite are selected.
+    Run Suites    --suite suites.subsuites.sub2 --suite tsuite3 --test *First
+    Should Contain Suites    ${SUITE}    Subsuites    Tsuite3
+    Should Contain Tests     ${SUITE}    SubSuite2 First    Suite3 First
 
 --suite and --test together not matching
     Run Failing Test
@@ -156,17 +126,17 @@ Unnecessary files are not parsed when --suite matches directory
     ...    --suite subsuites -s nomatch --test Suite1* -t nomatch    ${SUITE DIR}
 
 --suite with --include/--exclude
-    Run Suites    --suite tsuite? --include t? --exclude t2
-    Should Contain Suites    ${SUITE}    Tsuite1    Tsuite2    Tsuite3
-    Should Contain Tests    ${SUITE}    Suite1 First    Suite2 First    Suite3 First
+    Run Suites    --suite tsuite[13] --include t? --exclude t2
+    Should Contain Suites    ${SUITE}    Tsuite1    Tsuite3
+    Should Contain Tests     ${SUITE}    Suite1 First    Suite3 First
 
---suite, --test, --inculde and --exclude
-    Run Suites    --suite sub* --test *first -s nosuite -t notest --include t1 --exclude sub3
-    Should Contain Suites   ${SUITE}    Subsuites
-    Should Contain Tests    ${SUITE}    SubSuite1 First
+--suite, --test, --include and --exclude
+    Run Suites    --suite sub* --suite "custom name *" --test *first -s nomatch -t nomatch --include sub3 --exclude t1
+    Should Contain Suites    ${SUITE}    Custom name for 📂 'subsuites2'    Subsuites
+    Should Contain Tests     ${SUITE}    SubSuite2 First    SubSuite3 Second
 
 --suite with long name and other filters
-    Run Suites    --suite suites.fourth --suite tsuite1 -s Subsuites.Sub1 --test *first* --exclude none
+    Run Suites    --suite suites.fourth --suite tsuite1 -s *.Subsuites.Sub1 --test *first* --exclude none
     Should Contain Suites    ${SUITE}   Fourth    Subsuites    Tsuite1
     Should Contain Tests   ${SUITE}    Suite4 First    Suite1 First    SubSuite1 First
 
@@ -175,10 +145,14 @@ Unnecessary files are not parsed when --suite matches directory
     Should Contain Suites    ${SUITE}   Sub.Suite.1    Suite5    Suite6
     Should Contain Suites    ${SUITE.suites[0]}   .Sui.te.2.    Suite4
 
+Suite containing tasks is ok if only tests are selected
+    Run And Check Tests    --test test      Test    sources=rpa/tasks rpa/tests.robot
+    Run And Check Tests    --suite tests    Test    sources=rpa/tasks rpa/tests.robot
+
 *** Keywords ***
 Run And Check Tests
-    [Arguments]    ${params}    @{tests}
-    Run Tests    ${params}    ${SUITE FILE}
+    [Arguments]    ${params}    @{tests}    ${sources}=${SUITE FILE}
+    Run Tests    ${params}    ${sources}
     Stderr Should Be Empty
     Should Contain Tests    ${suite}    @{tests}
 

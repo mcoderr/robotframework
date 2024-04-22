@@ -1,7 +1,7 @@
-*** Variable ***
+*** Variables ***
 ${VERSION}      1.2
 
-*** Test Case ***
+*** Test Cases ***
 Normal name
     Normal name
 
@@ -14,9 +14,6 @@ Names are not formatted
     USERKEYWORDNAMESARENOTFORMATTED
     u_s_e_r_k_e_y_w_o_r_d_n_a_m_e_s_a_r_e_n_o_t_f_o_r_m_a_t_t_e_d
     U_S_E_R_K_E_Y_W_O_R_D_N_A_M_E_S_A_R_E_N_O_T_F_O_R_M_A_T_T_E_D
-
-'...' as name is deprecated
-    Run Keyword    ...
 
 Documentation
     Documentation
@@ -35,6 +32,9 @@ Documentation with variables
 
 Documentation with non-existing variables
     Documentation with non-existing variables
+
+Documentation with unclosed variables
+    Documentation with unclosed variables
 
 Documentation with escaping
     Documentation with escaping
@@ -72,9 +72,6 @@ Return with escaping
 Timeout
     Timeout
 
-Timeout with message
-    Timeout with message
-
 Timeout with variables
     Timeout with variables
 
@@ -87,19 +84,25 @@ Multiple settings
     Should Be Equal    ${ret}    Hello World!!
 
 Invalid setting
-    [Documentation]    FAIL Keywords are executed regardless invalid settings
-    Invalid passing
-    Invalid failing
+    [Documentation]    FAIL Non-existing setting 'Invalid Setting'.
+    Invalid
+    Invalid
 
-*** Keyword ***
+Setting not valid with user keywords
+    [Documentation]    FAIL Setting 'Metadata' is not allowed with user keywords.
+    Setting not valid with user keywords
+
+Small typo should provide recommendation
+    [Documentation]    FAIL
+    ...    Non-existing setting 'Doc Umentation'. Did you mean:
+    ...    ${SPACE*4}Documentation
+    Small typo should provide recommendation
+
+*** Keywords ***
 Normal name
     No Operation
 
 user_keyword nameS _are_not_ FORmatted
-    No Operation
-
-...
-    [Documentation]    ... as name is deprecated since 3.1.2
     No Operation
 
 Documentation
@@ -107,7 +110,7 @@ Documentation
     No Operation
 
 Documentation in multiple columns
-    [Documentation]    Documentation    for this user keyword    in multiple columns
+    [Documentation]    Documentation    for this user keyword          in multiple columns
     No Operation
 
 Documentation in multiple rows
@@ -136,8 +139,12 @@ Documentation with non-existing variables
     [Documentation]    Starting from RF ${2}.1 ${NONEX} variables are left unchanged.
     No Operation
 
+Documentation with unclosed variables
+    [Documentation]    Not ${closed
+    No Operation
+
 Documentation with escaping
-    [Documentation]    \${XXX}    c:\\temp    \    \\
+    [Documentation]    \${XXX} - c:\\temp - \ - \\
     No Operation
 
 Arguments
@@ -175,10 +182,6 @@ Timeout
     [Timeout]    123 seconds
     No Operation
 
-Timeout with message
-    [Timeout]    123456 ms    message
-    No Operation
-
 Timeout with variables
     [TIMEout]    ${VERSION} DAYS
     No Operation
@@ -191,15 +194,23 @@ Multiple settings
     [Arguments]    ${name}
     [Documentation]    Documentation for a user keyword
     [Timeout]    0.1 hours
-    No Operation
     [Teardown]    Log    Teardown ${name}
-    [Return]    Hello ${name}!!
+    RETURN    Hello ${name}!!
 
-Invalid passing
-    [Doc U Ment ation]    This is deprecated
+Invalid
     [Invalid Setting]    This is invalid
     No Operation
 
-Invalid failing
-    [invalid]    Yes, this is also invalid
-    Fail    Keywords are executed regardless invalid settings
+Setting not valid with user keywords
+    [Metadata]    Not valid.
+    [Template]    Not valid.
+    No Operation
+
+Small typo should provide recommendation
+    [Doc Umentation]
+    No Operation
+
+Invalid empty line continuation in arguments should throw an error
+    [Arguments]
+    ...
+    No Operation

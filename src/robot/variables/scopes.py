@@ -16,14 +16,16 @@
 import os
 import tempfile
 
-from robot.errors import DataError
+from robot.errors import VariableError
+from robot.model import Tags
 from robot.output import LOGGER
-from robot.utils import abspath, find_file, get_error_details, NormalizedDict
+from robot.utils import abspath, find_file, get_error_details, DotDict, NormalizedDict
 
+from .resolvable import GlobalVariableValue
 from .variables import Variables
 
 
-class VariableScopes(object):
+class VariableScopes:
 
     def __init__(self, settings):
         self._global = GlobalVariables(settings)
@@ -100,8 +102,8 @@ class VariableScopes(object):
     def replace_scalar(self, items, ignore_errors=False):
         return self.current.replace_scalar(items, ignore_errors)
 
-    def replace_string(self, string, ignore_errors=False):
-        return self.current.replace_string(string, ignore_errors=ignore_errors)
+    def replace_string(self, string, custom_unescaper=None, ignore_errors=False):
+        return self.current.replace_string(string, custom_unescaper, ignore_errors)
 
     def set_from_file(self, path, args, overwrite=False):
         variables = None
@@ -111,9 +113,9 @@ class VariableScopes(object):
             else:
                 scope.set_from_file(variables, overwrite=overwrite)
 
-    def set_from_variable_table(self, variables, overwrite=False):
+    def set_from_variable_section(self, variables, overwrite=False):
         for scope in self._scopes_until_suite:
-            scope.set_from_variable_table(variables, overwrite)
+            scope.set_from_variable_section(variables, overwrite)
 
     def resolve_delayed(self):
         for scope in self._scopes_until_suite:
@@ -138,12 +140,11 @@ class VariableScopes(object):
             return
         for scope in self._scopes_until_suite:
             name, value = self._set_global_suite_or_test(scope, name, value)
-        if children:
-            self._variables_set.set_suite(name, value)
+        self._variables_set.set_suite(name, value, children)
 
     def set_test(self, name, value):
         if self._test is None:
-            raise DataError('Cannot set test variable when no test is started.')
+            raise VariableError('Cannot set test variable when no test is started.')
         for scope in self._scopes_until_test:
             name, value = self._set_global_suite_or_test(scope, name, value)
         self._variables_set.set_test(name, value)
@@ -152,22 +153,27 @@ class VariableScopes(object):
         self.current[name] = value
         self._variables_set.set_keyword(name, value)
 
+    def set_local(self, name, value):
+        self.current[name] = value
+
     def as_dict(self, decoration=True):
         return self.current.as_dict(decoration=decoration)
 
 
 class GlobalVariables(Variables):
+    _import_by_path_ends = ('.py', '/', os.sep, '.yaml', '.yml', '.json')
 
     def __init__(self, settings):
-        Variables.__init__(self)
-        self._set_cli_variables(settings)
+        super().__init__()
         self._set_built_in_variables(settings)
+        self._set_cli_variables(settings)
 
     def _set_cli_variables(self, settings):
-        for path, args in settings.variable_files:
+        for name, args in settings.variable_files:
             try:
-                path = find_file(path, file_type='Variable file')
-                self.set_from_file(path, args)
+                if name.lower().endswith(self._import_by_path_ends):
+                    name = find_file(name, file_type='Variable file')
+                self.set_from_file(name, args)
             except:
                 msg, details = get_error_details()
                 LOGGER.error(msg)
@@ -182,6 +188,12 @@ class GlobalVariables(Variables):
     def _set_built_in_variables(self, settings):
         for name, value in [('${TEMPDIR}', abspath(tempfile.gettempdir())),
                             ('${EXECDIR}', abspath('.')),
+                            ('${OPTIONS}', DotDict({
+                                'include': Tags(settings.include),
+                                'exclude': Tags(settings.exclude),
+                                'skip': Tags(settings.skip),
+                                'skip_on_failure': Tags(settings.skip_on_failure)
+                            })),
                             ('${/}', os.sep),
                             ('${:}', os.pathsep),
                             ('${\\n}', os.linesep),
@@ -190,19 +202,19 @@ class GlobalVariables(Variables):
                             ('${False}', False),
                             ('${None}', None),
                             ('${null}', None),
-                            ('${OUTPUT_DIR}', settings.output_directory),
-                            ('${OUTPUT_FILE}', settings.output or 'NONE'),
-                            ('${REPORT_FILE}', settings.report or 'NONE'),
-                            ('${LOG_FILE}', settings.log or 'NONE'),
-                            ('${DEBUG_FILE}', settings.debug_file or 'NONE'),
+                            ('${OUTPUT_DIR}', str(settings.output_directory)),
+                            ('${OUTPUT_FILE}', str(settings.output or 'NONE')),
+                            ('${REPORT_FILE}', str(settings.report or 'NONE')),
+                            ('${LOG_FILE}', str(settings.log or 'NONE')),
+                            ('${DEBUG_FILE}', str(settings.debug_file or 'NONE')),
                             ('${LOG_LEVEL}', settings.log_level),
                             ('${PREV_TEST_NAME}', ''),
                             ('${PREV_TEST_STATUS}', ''),
                             ('${PREV_TEST_MESSAGE}', '')]:
-            self[name] = value
+            self[name] = GlobalVariableValue(value)
 
 
-class SetVariables(object):
+class SetVariables:
 
     def __init__(self):
         self._suite = None
@@ -239,8 +251,14 @@ class SetVariables(object):
             if name in scope:
                 scope.pop(name)
 
-    def set_suite(self, name, value):
-        self._suite[name] = value
+    def set_suite(self, name, value, children=False):
+        for scope in reversed(self._scopes):
+            if children:
+                scope[name] = value
+            elif name in scope:
+                scope.pop(name)
+            if scope is self._suite:
+                break
 
     def set_test(self, name, value):
         for scope in reversed(self._scopes):

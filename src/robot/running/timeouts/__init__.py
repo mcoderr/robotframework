@@ -15,26 +15,23 @@
 
 import time
 
-from robot.utils import (Sortable, py2to3, secs_to_timestr, timestr_to_secs,
-                         IRONPYTHON, JYTHON, WINDOWS)
+from robot.utils import Sortable, secs_to_timestr, timestr_to_secs, WINDOWS
 from robot.errors import TimeoutError, DataError, FrameworkError
 
-if JYTHON:
-    from .jython import Timeout
-elif IRONPYTHON:
-    from .ironpython import Timeout
-elif WINDOWS:
+if WINDOWS:
     from .windows import Timeout
 else:
-    from .posix import Timeout
+    try:
+        from .posix import Timeout
+    except ImportError:
+        from .nosupport import Timeout
 
 
-@py2to3
 class _Timeout(Sortable):
+    type: str
 
-    def __init__(self, timeout=None, message='', variables=None):
+    def __init__(self, timeout=None, variables=None):
         self.string = timeout or ''
-        self.message = message
         self.secs = -1
         self.starttime = -1
         self.error = None
@@ -52,11 +49,9 @@ class _Timeout(Sortable):
                 return
             self.secs = timestr_to_secs(self.string)
             self.string = secs_to_timestr(self.secs)
-            self.message = variables.replace_string(self.message)
         except (DataError, ValueError) as err:
             self.secs = 0.000001  # to make timeout active
-            self.error = (u'Setting %s timeout failed: %s'
-                          % (self.type.lower(), err))
+            self.error = ('Setting %s timeout failed: %s' % (self.type.lower(), err))
 
     def start(self):
         if self.secs > 0:
@@ -96,14 +91,12 @@ class _Timeout(Sortable):
 
     @property
     def _timeout_error(self):
-        if self.message:
-            return self.message
         return '%s timeout %s exceeded.' % (self.type, self.string)
 
-    def __unicode__(self):
+    def __str__(self):
         return self.string
 
-    def __nonzero__(self):
+    def __bool__(self):
         return bool(self.string and self.string.upper() != 'NONE')
 
     @property
@@ -121,10 +114,10 @@ class TestTimeout(_Timeout):
     type = 'Test'
     _keyword_timeout_occurred = False
 
-    def __init__(self, timeout=None, message='', variables=None, rpa=False):
+    def __init__(self, timeout=None, variables=None, rpa=False):
         if rpa:
             self.type = 'Task'
-        _Timeout.__init__(self, timeout, message, variables)
+        super().__init__(timeout, variables)
 
     def set_keyword_timeout(self, timeout_occurred):
         if timeout_occurred:

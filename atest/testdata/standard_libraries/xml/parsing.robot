@@ -11,8 +11,37 @@ Parse file using system path separator
     ${root} =   Parse XML     ${CURDIR}${/}test.xml
     Should be equal     ${root.tag}     test
 
+Parse file using pathlib.Path
+    ${root} =   Parse XML     ${{pathlib.Path('${CURDIR}/test.xml')}}
+    Should be equal     ${root.tag}     test
+
 Parse string
     ${root} =   Parse XML     <simple>päivää</simple>
+    Should be equal     ${root.tag}     simple
+    Should be equal     ${root.text}     päivää
+
+Parse string with encoding
+    ${root} =   Parse XML     <?xml version="1.0" encoding="UTF-8"?><simple>päivää</simple>
+    Should be equal     ${root.tag}     simple
+    Should be equal     ${root.text}     päivää
+    ${root} =   Parse XML     <?xml version='1.0' encoding='latin1' standalone='yes'?>\n<simple>päivää</simple>\n
+    Should be equal     ${root.tag}     simple
+    Should be equal     ${root.text}     päivää
+
+Parse bytes
+    ${root} =   Run With Bytes
+    ...    Parse XML     <simple>päivää</simple>
+    Should be equal     ${root.tag}     simple
+    Should be equal     ${root.text}     päivää
+
+Parse bytes with encoding
+    ${root} =   Run With Bytes
+    ...    Parse XML     <?xml version\="1.0" encoding\="UTF-8"?><simple>päivää</simple>
+    Should be equal     ${root.tag}     simple
+    Should be equal     ${root.text}     päivää
+    ${root} =   Run With Bytes
+    ...    Parse XML     <?xml version\='1.0' encoding\='latin1' standalone\='yes'?>\n<simple>päivää</simple>\n
+    ...    encoding=latin1
     Should be equal     ${root.tag}     simple
     Should be equal     ${root.text}     päivää
 

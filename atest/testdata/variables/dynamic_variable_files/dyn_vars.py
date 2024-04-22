@@ -1,8 +1,5 @@
-from collections import Mapping
-try:
-    from UserDict import UserDict
-except ImportError:  # Python 3
-    from collections import UserDict
+from collections import UserDict
+from collections.abc import Mapping
 
 
 def get_variables(type):
@@ -10,8 +7,7 @@ def get_variables(type):
             'mydict': MyDict,
             'Mapping': get_MyMapping,
             'UserDict': get_UserDict,
-            'MyUserDict': MyUserDict,
-            'JavaMap': get_JavaMap}[type]()
+            'MyUserDict': MyUserDict}[type]()
 
 
 def get_dict():
@@ -21,7 +17,7 @@ def get_dict():
 class MyDict(dict):
 
     def __init__(self):
-        dict.__init__(self, from_my_dict='This From My Dict', from_my_dict2=2)
+        super().__init__(from_my_dict='This From My Dict', from_my_dict2=2)
 
 
 def get_MyMapping():
@@ -51,13 +47,5 @@ def get_UserDict():
 class MyUserDict(UserDict):
 
     def __init__(self):
-        UserDict.__init__(self, {'from MyUserDict': 'This From MyUserDict',
-                                 'from MyUserDict2': 2})
-
-
-def get_JavaMap():
-    from java.util import HashMap
-    map = HashMap()
-    map.put('from Java Map', 'This From Java Map')
-    map.put('from Java Map2', 2)
-    return map
+        super().__init__({'from MyUserDict': 'This From MyUserDict',
+                          'from MyUserDict2': 2})

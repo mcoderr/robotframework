@@ -13,14 +13,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from robot.utils import JYTHON
-
 from .argumentmapper import DefaultValue
-from .argumentparser import (PythonArgumentParser, UserKeywordArgumentParser,
-                             DynamicArgumentParser, JavaArgumentParser)
-from .argumentspec import ArgumentSpec
+from .argumentparser import (DynamicArgumentParser, PythonArgumentParser,
+                             UserKeywordArgumentParser)
+from .argumentspec import ArgInfo, ArgumentSpec
 from .embedded import EmbeddedArguments
-if JYTHON:
-    from .javaargumentcoercer import JavaArgumentCoercer
-else:
-    JavaArgumentCoercer = None
+from .customconverters import CustomArgumentConverters
+from .typeconverters import TypeConverter
+from .typeinfo import TypeInfo

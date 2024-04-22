@@ -14,30 +14,47 @@
 #  limitations under the License.
 
 import io
+import os.path
+from pathlib import Path
 
-from .platform import PY3
+from robot.errors import DataError
+
+from .error import get_error_message
+from .robottypes import is_pathlike
 
 
-def file_writer(path=None, encoding='UTF-8', newline=None):
-    if path:
-        f = io.open(path, 'w', encoding=encoding, newline=newline)
-    else:
-        f = io.StringIO(newline=newline)
-    if PY3:
-        return f
-    # These streams require written text to be Unicode. We don't want to add
-    # `u` prefix to all our strings in Python 2, and cannot really use
-    # `unicode_literals` either because many other Python 2 APIs accept only
-    # byte strings.
-    write = f.write
-    f.write = lambda text: write(unicode(text))
-    return f
+def file_writer(path=None, encoding='UTF-8', newline=None, usage=None):
+    if not path:
+        return io.StringIO(newline=newline)
+    if is_pathlike(path):
+        path = str(path)
+    create_destination_directory(path, usage)
+    try:
+        return io.open(path, 'w', encoding=encoding, newline=newline)
+    except EnvironmentError:
+        usage = '%s file' % usage if usage else 'file'
+        raise DataError("Opening %s '%s' failed: %s"
+                        % (usage, path, get_error_message()))
 
 
 def binary_file_writer(path=None):
     if path:
+        if is_pathlike(path):
+            path = str(path)
         return io.open(path, 'wb')
     f = io.BytesIO()
     getvalue = f.getvalue
     f.getvalue = lambda encoding='UTF-8': getvalue().decode(encoding)
     return f
+
+
+def create_destination_directory(path: 'Path|str', usage=None):
+    if not is_pathlike(path):
+        path = Path(path)
+    if not path.parent.exists():
+        try:
+            os.makedirs(path.parent, exist_ok=True)
+        except EnvironmentError:
+            usage = f'{usage} directory' if usage else 'directory'
+            raise DataError(f"Creating {usage} '{path.parent}' failed: "
+                            f"{get_error_message()}")

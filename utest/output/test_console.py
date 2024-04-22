@@ -1,14 +1,7 @@
 import unittest
-import sys
 
 from robot.utils.asserts import assert_equal
 from robot.output.console.verbose import VerboseOutput
-
-# Overwrite IronPython's special utils.isatty with version using stream.isatty.
-# Otherwise our StreamStub.isatty would not really work.
-if sys.platform == 'cli':
-    from robot.output.console import verbose
-    verbose.isatty = lambda stream: hasattr(stream, 'isatty') and stream.isatty()
 
 
 class TestKeywordNotification(unittest.TestCase):
@@ -17,7 +10,7 @@ class TestKeywordNotification(unittest.TestCase):
         self.stream = StreamStub(isatty)
         self.console = VerboseOutput(width=16, colors='off', markers=markers,
                                      stdout=self.stream, stderr=self.stream)
-        self.console.start_test(Stub())
+        self.console.start_test(Stub(), Stub())
 
     def test_write_pass_marker(self):
         self._write_marker()
@@ -46,8 +39,8 @@ class TestKeywordNotification(unittest.TestCase):
 
     def test_clear_markers_when_test_status_is_written(self):
         self._write_marker(count=5)
-        self.console.end_test(Stub())
-        self._verify('| PASS |\n%s\n' % ('-'*self.console._writer._width))
+        self.console.end_test(Stub(), Stub())
+        self._verify('| PASS |\n%s\n' % ('-'*self.console.writer.width))
 
     def test_clear_markers_when_there_are_warnings(self):
         self._write_marker(count=5)
@@ -76,14 +69,14 @@ class TestKeywordNotification(unittest.TestCase):
 
     def _write_marker(self, status='PASS', count=1):
         for i in range(count):
-            self.console.start_keyword(Stub())
-            self.console.end_keyword(Stub(status=status))
+            self.console.start_keyword(Stub(), Stub())
+            self.console.end_keyword(Stub(), Stub(status=status))
 
     def _verify(self, after='', before=''):
         assert_equal(str(self.stream), '%sX :: D  %s' % (before, after))
 
 
-class Stub(object):
+class Stub:
 
     def __init__(self, name='X', doc='D', status='PASS', message=''):
         self.name = name
@@ -96,14 +89,14 @@ class Stub(object):
         return self.status == 'PASS'
 
 
-class MessageStub(object):
+class MessageStub:
 
     def __init__(self, message='Message', level='WARN'):
         self.message = message
         self.level = level
 
 
-class StreamStub(object):
+class StreamStub:
 
     def __init__(self, isatty=True):
         self.buffer = []

@@ -1,4 +1,4 @@
-*** Setting ***
+*** Settings ***
 Suite Setup       Log    Setup of test case file
 Suite Teardown    Log    Teardown of test case file
 Test Setup        Log    Default setup from test file
@@ -7,7 +7,7 @@ Force Tags        test force
 Default Tags      test default
 Test Timeout      4 h 5 m 6 s
 
-*** Test Case ***
+*** Test Cases ***
 S1TC1 No metadata
     No Operation
 
@@ -21,6 +21,6 @@ S1TC1 Fixture
     [Teardown]    Log    Teardown defined in test
 
 S1TC1 Timeout
-    [Documentation]    FAIL Test timeout 1 second exceeded.
-    [Timeout]    1 s
-    Sleep    1.1
+    [Documentation]    FAIL Test timeout 101 milliseconds exceeded.
+    [Timeout]    101ms
+    Sleep    1s

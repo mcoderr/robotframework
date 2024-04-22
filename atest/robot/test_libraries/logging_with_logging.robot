@@ -28,6 +28,16 @@ Log with custom levels
     Check log message    ${tc.kws[0].msgs[4]}    between warning and error    WARN
     Check log message    ${tc.kws[0].msgs[5]}    above error    ERROR
 
+Log exception
+    ${tc} =    Check test case    ${TEST NAME}
+    ${message} =    Catenate    SEPARATOR=\n
+    ...    Error occurred!
+    ...    Traceback (most recent call last):
+    ...    ${SPACE*2}File "*", line 56, in log_exception
+    ...    ${SPACE*4}raise ValueError('Bang!')
+    ...    ValueError: Bang!
+    Check log message    ${tc.kws[0].msgs[0]}    ${message}    ERROR    pattern=True    traceback=True
+
 Messages below threshold level are ignored fully
     ${tc}=    Check test case    ${TEST NAME}
     Should be empty    ${tc.kws[0].msgs}
@@ -37,17 +47,17 @@ Error in creating message is logged
     Check log message    ${tc.kws[0].msgs[0]}
     ...    Failed to log following message properly: <Unrepresentable object InvalidMessage. Error: Should not have been logged>
     Check log message    ${tc.kws[0].msgs[1]}
-    ...    Should not have been logged\nTraceback (most recent call last):*    DEBUG    pattern=true
+    ...    Should not have been logged\nTraceback (most recent call last):*    DEBUG    pattern=True
 
 Log using custom logger
     ${tc} =    Check test case    ${TEST NAME}
     Check log message    ${tc.kws[0].msgs[0]}    custom logger
-    Check stdout contains    Custom Logger
+    Stdout Should Contain    Custom Logger
 
 Log using non-propagating logger
     ${tc} =    Check test case    ${TEST NAME}
     Should be empty    ${tc.kws[0].msgs}
-    Check stdout contains    Nonprop Logger
+    Stdout Should Contain    Nonprop Logger
 
 Timestamps are accurate
     ${tc} =    Check test case    ${TEST NAME}
@@ -59,8 +69,12 @@ Timestamps are accurate
 
 Logging when timeout is in use
     ${tc} =    Check test case    ${TEST NAME}
-    Check log message    ${tc.kws[0].msgs[0]}    Test timeout 5 seconds active. * seconds left.    DEBUG    pattern=yep
+    Check log message    ${tc.kws[0].msgs[0]}    Test timeout 5 seconds active. * seconds left.    DEBUG    pattern=True
     Check log message    ${tc.kws[0].msgs[1]}    something
 
 Suppress errors from logging module
-    Check Stderr Does Not Contain    Traceback
+    Stderr Should Contain    Traceback    count=1
+
+Log with format
+    ${tc} =    Check test case    ${TEST NAME}
+    Check log message    ${tc.kws[0].msgs[0]}    root INFO logged at info

@@ -14,21 +14,23 @@
 #  limitations under the License.
 
 from robot.errors import DataError, VariableError
-from robot.utils import (DotDict, is_dict_like, is_list_like, NormalizedDict,
+from robot.utils import (DotDict, is_dict_like, is_list_like, NormalizedDict, NOT_SET,
                          type_name)
 
-from .isvar import validate_var
 from .notfound import variable_not_found
-from .tablesetter import VariableTableValueBase
+from .resolvable import GlobalVariableValue, Resolvable
+from .search import is_assign, unescape_variable_syntax
 
 
-class VariableStore(object):
+class VariableStore:
 
     def __init__(self, variables):
         self.data = NormalizedDict(ignore='_')
         self._variables = variables
 
-    def resolve_delayed(self):
+    def resolve_delayed(self, item=None):
+        if item:
+            return self._resolve_delayed(*item)
         for name, value in list(self.data.items()):
             try:
                 self._resolve_delayed(name, value)
@@ -42,21 +44,32 @@ class VariableStore(object):
             self.data[name] = value.resolve(self._variables)
         except DataError as err:
             # Recursive resolving may have already removed variable.
-            if name in self:
-                self.remove(name)
-                value.report_error(err)
-            variable_not_found('${%s}' % name, self.data,
-                               "Variable '${%s}' not found." % name)
+            if name in self.data:
+                self.data.pop(name)
+                value.report_error(str(err))
+            variable_not_found('${%s}' % name, self.data)
         return self.data[name]
 
     def _is_resolvable(self, value):
-        try: # isinstance can throw an exception in ironpython and jython
-            return isinstance(value, VariableTableValueBase)
+        try:
+            return isinstance(value, Resolvable)
         except Exception:
             return False
 
     def __getitem__(self, name):
+        if name not in self.data:
+            variable_not_found('${%s}' % name, self.data)
         return self._resolve_delayed(name, self.data[name])
+
+    def get(self, name, default=NOT_SET, decorated=True):
+        try:
+            if decorated:
+                name = self._undecorate(name)
+            return self[name]
+        except DataError:
+            if default is NOT_SET:
+                raise
+            return default
 
     def update(self, store):
         self.data.update(store.data)
@@ -66,29 +79,32 @@ class VariableStore(object):
 
     def add(self, name, value, overwrite=True, decorated=True):
         if decorated:
-            name, value = self._undecorate(name, value)
-        if overwrite or name not in self.data:
+            name, value = self._undecorate_and_validate(name, value)
+        if (overwrite
+                or name not in self.data
+                or isinstance(self.data[name], GlobalVariableValue)):
             self.data[name] = value
 
-    def _undecorate(self, name, value):
-        validate_var(name)
+    def _undecorate(self, name):
+        if not is_assign(name, allow_nested=True):
+            raise DataError(f"Invalid variable name '{name}'.")
+        return self._variables.replace_string(
+            name[2:-1], custom_unescaper=unescape_variable_syntax
+        )
+
+    def _undecorate_and_validate(self, name, value):
+        undecorated = self._undecorate(name)
+        if isinstance(value, Resolvable):
+            return undecorated, value
         if name[0] == '@':
             if not is_list_like(value):
-                self._raise_cannot_set_type(name, value, 'list')
+                raise DataError(f'Expected list-like value, got {type_name(value)}.')
             value = list(value)
         if name[0] == '&':
             if not is_dict_like(value):
-                self._raise_cannot_set_type(name, value, 'dictionary')
+                raise DataError(f'Expected dictionary-like value, got {type_name(value)}.')
             value = DotDict(value)
-        return name[2:-1], value
-
-    def _raise_cannot_set_type(self, name, value, expected):
-        raise VariableError("Cannot set variable '%s': Expected %s-like value, "
-                            "got %s." % (name, expected, type_name(value)))
-
-    def remove(self, name):
-        if name in self.data:
-            self.data.pop(name)
+        return undecorated, value
 
     def __len__(self):
         return len(self.data)

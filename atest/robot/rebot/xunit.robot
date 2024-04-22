@@ -14,40 +14,68 @@ ${INVALID}        %{TEMPDIR}${/}ïnvälïd-xünït.xml
 No XUnit Option Given
     Run Rebot    ${EMPTY}    ${INPUT FILE}
     Stderr Should Be Empty
-    Check Stdout Does Not Contain    XUnit
+    Stdout Should Not Contain    XUnit
 
 XUnit Option Given
     Run Rebot    --xunit xunit.xml --log log.html    ${INPUT FILE}
     Stderr Should Be Empty
-    Check Stdout Contains    XUnit:
+    Stdout Should Contain    XUnit:
     File Should Exist    ${OUTDIR}/xunit.xml
     File Should Exist    ${OUTDIR}/log.html
     ${root} =    Parse XML    ${OUTDIR}/xunit.xml
     Should Be Equal    ${root.tag}    testsuite
-    ${tests} =    Get Elements    ${root}    testcase
-    Length Should Be    ${tests}    19
-    Should Be Equal    ${tests[7].attrib['name']}    Ñöñ-ÄŚÇÏÏ Tëśt äņd Këywörd Nämës, Спасибо
-    ${failures} =    Get Elements    ${root}    testcase/failure
-    Length Should Be    ${failures}    5
-    Should Be Equal    ${failures[0].attrib['message']}    ${MESSAGES}
+    ${suites} =    Get Elements    ${root}    testsuite
+    Length Should Be    ${suites}    2
+    ${tests} =    Get Elements    ${suites}[0]    testcase
+    Length Should Be    ${tests}    8
+    Element Attribute Should be    ${tests}[7]    name    Ñöñ-ÄŚÇÏÏ Tëśt äņd Këywörd Nämës, Спасибо
+    ${failures} =    Get Elements    ${suites}[0]    testcase/failure
+    Length Should Be    ${failures}    4
+    Element Attribute Should be    ${failures}[0]    message    ${MESSAGES}
+    ${properties} =    Get Elements    ${suites}[1]    testsuite[6]/properties/property
+    Length Should Be    ${properties}    2
+    Element Attribute Should be    ${properties}[0]    name     Documentation
+    Element Attribute Should be    ${properties}[0]    value    Normal test cases
+
+Suite Stats
+    [Template]    Suite Stats Should Be
+    21    5
+    8     4    xpath=testsuite[1]
+    13    1    xpath=testsuite[2]
+    1     1    xpath=testsuite[2]/testsuite[2]
+    2     0    xpath=testsuite[2]/testsuite[3]
+    1     0    xpath=testsuite[2]/testsuite[3]/testsuite[1]
+    1     0    xpath=testsuite[2]/testsuite[3]/testsuite[2]
+    3     0    xpath=testsuite[2]/testsuite[4]
+    1     0    xpath=testsuite[2]/testsuite[4]/testsuite[1]
+    2     0    xpath=testsuite[2]/testsuite[4]/testsuite[2]
+    3     0    xpath=testsuite[2]/testsuite[6]
+    1     0    xpath=testsuite[2]/testsuite[7]
+    1     0    xpath=testsuite[2]/testsuite[8]
 
 Times in xUnit output
-    Previous Test Should Have Passed    XUnit Option Given
+    Previous Test Should Have Passed    Suite Stats
     ${suite} =    Parse XML    ${OUTDIR}/xunit.xml
     Element Attribute Should Match    ${suite}    time    ?.???
-    Element Attribute Should Match    ${suite}    time    ?.???    xpath=.//testcase[1]
+    Element Attribute Should Match    ${suite}    time    ?.???    xpath=testsuite[1]
+    Element Attribute Should Match    ${suite}    time    ?.???    xpath=testsuite[1]/testcase[2]
+    Element Attribute Should Match    ${suite}    time    ?.???    xpath=testsuite[2]/testsuite[2]/testcase[1]
 
-XUnit skip non-criticals
-    Run Rebot    --xUnit xunit.xml --xUnitSkipNonCritical --NonCritical f1    ${INPUT FILE}
-    Stderr Should Be Empty
-    ${root} =    Parse XML    ${OUTDIR}/xunit.xml
-    Element Attribute Should Be    ${root}    tests    19
-    Element Attribute Should Be    ${root}    failures    4
-    Element Attribute Should Be    ${root}    skipped    10
-    ${skipped} =    Get Elements    ${root}    xpath=testcase/skipped
-    Should Be Equal    ${skipped[0].text}    FAIL: Expected
-    Should Be Equal    ${skipped[1].text}    PASS
-    Length Should Be    ${skipped}    10
+Suite Properties
+    [Template]    Suite Properties Should Be
+    0
+    0     xpath=testsuite[1]
+    0     xpath=testsuite[2]
+    2     xpath=testsuite[2]/testsuite[2]
+    0     xpath=testsuite[2]/testsuite[3]
+    2     xpath=testsuite[2]/testsuite[3]/testsuite[1]
+    2     xpath=testsuite[2]/testsuite[3]/testsuite[2]
+    0     xpath=testsuite[2]/testsuite[4]
+    0     xpath=testsuite[2]/testsuite[4]/testsuite[1]
+    2     xpath=testsuite[2]/testsuite[4]/testsuite[2]
+    2     xpath=testsuite[2]/testsuite[6]
+    2     xpath=testsuite[2]/testsuite[7]
+    2     xpath=testsuite[2]/testsuite[8]
 
 Invalid XUnit File
     Create Directory    ${INVALID}
@@ -55,7 +83,46 @@ Invalid XUnit File
     File Should Not Exist    ${INVALID}
     File Should Exist    ${OUTDIR}/log.html
     ${path} =    Regexp Escape    ${INVALID}
-    Check Stderr Matches Regexp    \\[ ERROR \\] Writing xunit file '${path}' failed: .*
+    Stderr Should Match Regexp
+    ...    \\[ ERROR \\] Opening xunit file '${path}' failed: .*
+
+Merge outputs
+    Run Rebot    -x xunit.xml    ${INPUT FILE} ${INPUT FILE}
+    Suite Stats Should Be     42    10    0    timestamp=${EMPTY}
+
+Merged Suite properties
+    [Template]    Suite Properties Should Be
+    0
+    0     xpath=testsuite[1]
+    0     xpath=testsuite[1]/testsuite[1]
+    0     xpath=testsuite[1]/testsuite[2]
+    2     xpath=testsuite[1]/testsuite[2]/testsuite[2]
+    0     xpath=testsuite[1]/testsuite[2]/testsuite[3]
+    2     xpath=testsuite[1]/testsuite[2]/testsuite[3]/testsuite[1]
+    2     xpath=testsuite[1]/testsuite[2]/testsuite[3]/testsuite[2]
+    0     xpath=testsuite[1]/testsuite[2]/testsuite[4]
+    0     xpath=testsuite[1]/testsuite[2]/testsuite[4]/testsuite[1]
+    2     xpath=testsuite[1]/testsuite[2]/testsuite[4]/testsuite[2]
+    2     xpath=testsuite[1]/testsuite[2]/testsuite[6]
+    2     xpath=testsuite[1]/testsuite[2]/testsuite[7]
+    2     xpath=testsuite[1]/testsuite[2]/testsuite[8]
+    0     xpath=testsuite[2]
+    0     xpath=testsuite[2]/testsuite[1]
+    0     xpath=testsuite[2]/testsuite[2]
+    2     xpath=testsuite[2]/testsuite[2]/testsuite[2]
+    0     xpath=testsuite[2]/testsuite[2]/testsuite[3]
+    2     xpath=testsuite[2]/testsuite[2]/testsuite[3]/testsuite[1]
+    2     xpath=testsuite[2]/testsuite[2]/testsuite[3]/testsuite[2]
+    0     xpath=testsuite[2]/testsuite[2]/testsuite[4]
+    0     xpath=testsuite[2]/testsuite[2]/testsuite[4]/testsuite[1]
+    2     xpath=testsuite[2]/testsuite[2]/testsuite[4]/testsuite[2]
+    2     xpath=testsuite[2]/testsuite[2]/testsuite[6]
+    2     xpath=testsuite[2]/testsuite[2]/testsuite[7]
+    2     xpath=testsuite[2]/testsuite[2]/testsuite[8]
+
+Start and end time
+    Run Rebot    -x xunit.xml --starttime 20211215-12:11:10.456 --endtime 20211215-12:13:10.556    ${INPUT FILE}
+    Suite Stats Should Be     21    5    0    120.100    2021-12-15T12:11:10.456000
 
 *** Keywords ***
 Create Input File
@@ -65,3 +132,27 @@ Create Input File
 Remove Temps
     Remove Directory    ${MYOUTDIR}    recursive
     Remove File    ${INPUT FILE}
+
+Suite Stats Should Be
+    [Arguments]    ${tests}    ${failures}    ${skipped}=0
+    ...    ${time}=?.???    ${timestamp}=20??-??-??T??:??:??.??????
+    ...    ${xpath}=.
+    ${suite} =    Get Element    ${OUTDIR}/xunit.xml    xpath=${xpath}
+    Element Attribute Should Be       ${suite}    tests       ${tests}
+    Element Attribute Should Be       ${suite}    failures    ${failures}
+    Element Attribute Should Be       ${suite}    skipped     ${skipped}
+    Element Attribute Should Be       ${suite}    errors      0
+    Element Attribute Should Match    ${suite}    time        ${time}
+    Element Attribute Should Match    ${suite}    timestamp   ${timestamp}
+
+Suite Properties Should Be
+    [Arguments]    ${property_count}    ${xpath}=.
+    ${suite} =    Get Element    ${OUTDIR}/xunit.xml    xpath=${xpath}
+    ${properties_element} =    Get Elements    ${suite}    properties
+    IF    ${property_count}
+        Length Should Be    ${properties_element}    1
+        ${property_elements} =    Get Elements    ${properties_element}[0]    property
+        Length Should Be    ${property_elements}    ${property_count}
+    ELSE
+        Length Should Be    ${properties_element}    0
+    END

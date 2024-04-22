@@ -15,27 +15,32 @@
 
 """:mod:`robot.api` package exposes the public APIs of Robot Framework.
 
-Unless stated otherwise, the APIs exposed in this package are considered stable,
-and thus safe to use when building external tools on top of Robot Framework.
+Unless stated otherwise, the APIs exposed in this package are considered
+stable, and thus safe to use when building external tools on top of
+Robot Framework. Notice that all parsing APIs were rewritten in Robot
+Framework 3.2.
 
 Currently exposed APIs are:
 
-* :mod:`.logger` module for test libraries' logging purposes.
+* :mod:`.logger` module for libraries' logging purposes.
 
-* :mod:`.deco` module with decorators test libraries can utilize.
+* :mod:`.deco` module with decorators libraries can utilize.
 
-* :class:`~robot.parsing.model.TestCaseFile`,
-  :class:`~robot.parsing.model.TestDataDirectory`, and
-  :class:`~robot.parsing.model.ResourceFile` classes for parsing test
-  data files and directories.
-  In addition, a convenience factory method
-  :func:`~robot.parsing.model.TestData` creates either
-  :class:`~robot.parsing.model.TestCaseFile` or
-  :class:`~robot.parsing.model.TestDataDirectory` objects based on the input.
+* :mod:`.exceptions` module containing exceptions that libraries can utilize for
+  reporting failures and other events. These exceptions can be imported also directly
+  via :mod:`robot.api` like ``from robot.api import SkipExecution``.
+
+* :mod:`.interfaces` module containing optional base classes that can be used
+  when creating libraries and other extensions. New in Robot Framework 6.1.
+
+* :mod:`.parsing` module exposing the parsing APIs. This module is new in Robot
+  Framework 4.0. Various parsing related functions and classes were exposed
+  directly via :mod:`robot.api` already in Robot Framework 3.2, but they are
+  effectively deprecated and will be removed in the future.
 
 * :class:`~robot.running.model.TestSuite` class for creating executable
   test suites programmatically and
-  :class:`~robot.running.builder.TestSuiteBuilder` class
+  :class:`~robot.running.builder.builders.TestSuiteBuilder` class
   for creating such suites based on existing test data on the file system.
 
 * :class:`~robot.model.visitor.SuiteVisitor` abstract class for processing testdata
@@ -45,7 +50,7 @@ Currently exposed APIs are:
 * :func:`~robot.result.resultbuilder.ExecutionResult` factory method
   for reading execution results from XML output files and
   :class:`~robot.result.visitor.ResultVisitor` abstract class to ease
-  further processing the results. 
+  further processing the results.
   :class:`~robot.result.visitor.ResultVisitor` can also be used as a base
   for pre-Rebot modifier that is taken into use with ``--prerebotmodifier``
   commandline option.
@@ -56,10 +61,16 @@ Currently exposed APIs are:
   returned by the :func:`~robot.result.resultbuilder.ExecutionResult` or
   an executed :class:`~robot.running.model.TestSuite`.
 
+* :class:`~robot.running.arguments.typeinfo.TypeInfo` class for parsing
+  type hints and converting values based on them. New in Robot Framework 7.0.
 
-All of the above names can be imported like::
+* :class:`~robot.conf.languages.Languages` and :class:`~robot.conf.languages.Language`
+  classes for external tools that need to work with different translations.
+  The latter is also the base class to use with custom translations.
 
-    from robot.api import ApiName
+All of the above classes can be imported like::
+
+    from robot.api import ClassName
 
 See documentations of the individual APIs for more details.
 
@@ -67,8 +78,12 @@ See documentations of the individual APIs for more details.
         via the :mod:`robot` root package.
 """
 
+from robot.conf.languages import Language, Languages
 from robot.model import SuiteVisitor
-from robot.parsing import TestCaseFile, TestDataDirectory, ResourceFile, TestData
+from robot.parsing import (get_tokens, get_resource_tokens, get_init_tokens,
+                           get_model, get_resource_model, get_init_model, Token)
 from robot.reporting import ResultWriter
 from robot.result import ExecutionResult, ResultVisitor
-from robot.running import TestSuite, TestSuiteBuilder
+from robot.running import TestSuite, TestSuiteBuilder, TypeInfo
+
+from .exceptions import ContinuableFailure, Failure, FatalError, Error, SkipExecution

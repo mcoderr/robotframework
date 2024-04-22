@@ -14,64 +14,109 @@
 #  limitations under the License.
 
 from robot.errors import DataError
-from robot.model import TagPatterns
-from robot.utils import MultiMatcher, is_list_like, py2to3
+from robot.model import TagPatterns, SuiteVisitor
+from robot.utils import html_escape, MultiMatcher
+
+from .model import Keyword
 
 
 def validate_flatten_keyword(options):
     for opt in options:
         low = opt.lower()
-        if not (low in ('for', 'foritem') or
+        # TODO: Deprecate 'foritem' in RF 6.1!
+        if low == 'foritem':
+            low = 'iteration'
+        if not (low in ('for', 'while', 'iteration') or
                 low.startswith('name:') or
                 low.startswith('tag:')):
-            raise DataError("Expected 'FOR', 'FORITEM', 'TAG:<pattern>', or "
-                            "'NAME:<pattern>' but got '%s'." % opt)
+            raise DataError(f"Expected 'FOR', 'WHILE', 'ITERATION', 'TAG:<pattern>' or "
+                            f"'NAME:<pattern>', got '{opt}'.")
 
 
-@py2to3
-class FlattenByTypeMatcher(object):
+def create_flatten_message(original):
+    if not original:
+        start = ''
+    elif original.startswith('*HTML*'):
+        start = original[6:].strip() + '<hr>'
+    else:
+        start = html_escape(original) + '<hr>'
+    return f'*HTML* {start}<span class="robot-note">Content flattened.</span>'
+
+
+class FlattenByTypeMatcher:
 
     def __init__(self, flatten):
-        if not is_list_like(flatten):
+        if isinstance(flatten, str):
             flatten = [flatten]
         flatten = [f.lower() for f in flatten]
-        self._types = [f for f in flatten if f in ('for', 'foritem')]
+        self.types = set()
+        if 'for' in flatten:
+            self.types.add('for')
+        if 'while' in flatten:
+            self.types.add('while')
+        if 'iteration' in flatten or 'foritem' in flatten:
+            self.types.add('iter')
 
-    def match(self, kwtype):
-        return kwtype in self._types
+    def match(self, tag):
+        return tag in self.types
 
-    def __nonzero__(self):
-        return bool(self._types)
+    def __bool__(self):
+        return bool(self.types)
 
 
-@py2to3
-class FlattenByNameMatcher(object):
+class FlattenByNameMatcher:
 
     def __init__(self, flatten):
-        if not is_list_like(flatten):
+        if isinstance(flatten, str):
             flatten = [flatten]
         names = [n[5:] for n in flatten if n[:5].lower() == 'name:']
         self._matcher = MultiMatcher(names)
 
-    def match(self, kwname, libname=None):
-        name = '%s.%s' % (libname, kwname) if libname else kwname
+    def match(self, name, owner=None):
+        name = f'{owner}.{name}' if owner else name
         return self._matcher.match(name)
 
-    def __nonzero__(self):
+    def __bool__(self):
         return bool(self._matcher)
 
 
-@py2to3
-class FlattenByTagMatcher(object):
+class FlattenByTagMatcher:
 
     def __init__(self, flatten):
-        if not is_list_like(flatten):
+        if isinstance(flatten, str):
             flatten = [flatten]
         patterns = [p[4:] for p in flatten if p[:4].lower() == 'tag:']
         self._matcher = TagPatterns(patterns)
 
-    def match(self, kwtags):
-        return self._matcher.match(kwtags)
+    def match(self, tags):
+        return self._matcher.match(tags)
 
-    def __nonzero__(self):
+    def __bool__(self):
         return bool(self._matcher)
+
+
+class FlattenByTags(SuiteVisitor):
+
+    def __init__(self, flatten):
+        if isinstance(flatten, str):
+            flatten = [flatten]
+        patterns = [p[4:] for p in flatten if p[:4].lower() == 'tag:']
+        self.matcher = TagPatterns(patterns)
+
+    def start_suite(self, suite):
+        return bool(self.matcher)
+
+    def start_keyword(self, keyword: Keyword):
+        if self.matcher.match(keyword.tags):
+            keyword.message = create_flatten_message(keyword.message)
+            keyword.body = MessageFinder(keyword).messages
+
+
+class MessageFinder(SuiteVisitor):
+
+    def __init__(self, keyword: Keyword):
+        self.messages = []
+        keyword.visit(self)
+
+    def visit_message(self, message):
+        self.messages.append(message)

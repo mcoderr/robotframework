@@ -50,15 +50,15 @@ Default value with escaped content
 
 Varargs without naming arguments works
     @{ret} =    Named arguments with varargs    foo    bar    dar
-    Should be equal    @{ret}[0]    foo
+    Should be equal    ${ret}[0]    foo
     @{ret} =    Named arguments with varargs    foo    bar=bar    dar
-    Should be equal    @{ret}[1]    bar=bar
+    Should be equal    ${ret}[1]    bar=bar
     @{ret} =    Named arguments with varargs    foo    b\=bar    dar
-    Should be equal    @{ret}[1]    b=bar
+    Should be equal    ${ret}[1]    b=bar
 
 Naming without the varargs works
     @{ret} =    Named arguments with varargs    foo    b=bar
-    Should be equal    @{ret}[1]    bar
+    Should be equal    ${ret}[1]    bar
 
 Varargs with naming does not work
     [Documentation]    FAIL Keyword 'Named arguments with varargs' got positional argument after named arguments.
@@ -83,10 +83,10 @@ Named combinations with varargs
 Non working named combinations with varargs
     [Template]    Execute illegal named vararg combination
     got positional argument after named arguments.    a=a    b
-    missing value for argument 'a'.    b=b
+    missing value for argument 'a'.                   b=b
     got positional argument after named arguments.    b=b    b
     got positional argument after named arguments.    a      b=b    c
-    got positional argument after named arguments.    a      b=b    c=c
+    got unexpected named argument 'c'.                a      b=b    c=c
     got multiple values for argument 'a'.             a      b      a=a
     got multiple values for argument 'b'.             a      b      b=b
     got multiple values for argument 'a'.             a      a=a
@@ -136,37 +136,37 @@ Execute illegal named combination
 Mandatory, Named and varargs
     [Arguments]    ${a}    ${b}=default    @{varargs}
     ${res}=    pretty    ${a}    ${b}    @{varargs}
-    [Return]    ${res}
+    RETURN    ${res}
 
 Mandatory and Named
     [Arguments]    ${a}    ${b}=default
     ${res}=    pretty    ${a}    ${b}
-    [Return]    ${res}
+    RETURN    ${res}
 
 One Kwarg
     [Arguments]    ${kwarg}=
-    [Return]    ${kwarg}
+    RETURN    ${kwarg}
 
 Two Kwargs
     [Arguments]    ${first}=    ${second}=
-    [Return]    ${first}, ${second}
+    RETURN    ${first}, ${second}
 
 Four Kw Args
     [Arguments]    ${a}=default    ${b}=default    ${c}=default    ${d}=default
-    [Return]    ${a}, ${b}, ${c}, ${d}
+    RETURN    ${a}, ${b}, ${c}, ${d}
 
 Mandatory And Kwargs
     [Arguments]    ${man1}    ${man2}    ${kwarg}=KWARG VALUE
-    [Return]    ${man1}, ${man2}, ${kwarg}
+    RETURN    ${man1}, ${man2}, ${kwarg}
 
 Escaped default value
     [Arguments]    ${d1}=\${notvariable}    ${d2}=\\\\    ${d3}=\n    ${d4}=\t
-    [Return]    ${d1} ${d2} ${d3} ${d4}
+    RETURN    ${d1} ${d2} ${d3} ${d4}
 
 Named arguments with varargs
     [Arguments]    ${a}=default    ${b}=default    @{varargs}
-    [Return]    ${a}    ${b}    @{varargs}
+    RETURN    ${a}    ${b}    @{varargs}
 
 Named arguments with nönäscii
     [Arguments]    ${nönäscii}=
-    [return]       ${nönäscii}
+    RETURN       ${nönäscii}

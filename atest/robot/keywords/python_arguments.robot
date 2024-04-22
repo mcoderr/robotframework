@@ -42,9 +42,14 @@ Calling Using List Variables
     Check Test Case    ${TESTNAME}
 
 Calling Using Annotations
-    [Tags]    require-py3
     Check Test Case    ${TESTNAME}
 
 Calling Using Annotations With Defaults
-    [Tags]    require-py3
+    Check Test Case    ${TESTNAME}
+
+Dummy decorator does not preserve arguments
+    Check Test Case    ${TESTNAME} 1
+    Check Test Case    ${TESTNAME} 2
+
+Decorator using functools.wraps preserves arguments
     Check Test Case    ${TESTNAME}

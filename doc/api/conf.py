@@ -27,21 +27,14 @@ needs_sphinx = '1.3'
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.viewcode']
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.viewcode', 'sphinx_rtd_theme']
 autoclass_content = 'both'
 autodoc_default_flags = ['members', 'undoc-members', 'inherited-members']
 autodoc_member_order = 'bysource'
 autodoc_mock_imports = [
     # Standard libs. Prevents errors from Py2 incompatible imports in Py3 code.
     'collections',
-    # Java code related to the standalone jar.
-    'org.robotframework',  'org.robotframework.RobotRunner',
-    # Java standard libs.
-    'java.io', 'java.lang', 'java.awt', 'java.awt.event',
-    'javax.swing', 'javax.swing.JOptionPane',
-    # .NET standard libs.
-    'System.Threading', 'System.Drawing', 'System.Windows',
-    'System.Windows.Controls', 'wpf']
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -107,7 +100,7 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-#html_theme = 'classic'
+html_theme = 'sphinx_rtd_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -136,7 +129,7 @@ pygments_style = 'sphinx'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+#html_static_path = ['_static']
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.

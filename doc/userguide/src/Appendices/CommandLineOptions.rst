@@ -1,5 +1,5 @@
-All command line options
-========================
+Command line options
+====================
 
 This appendix lists all the command line options that are available
 when `executing test cases`_  and when `post-processing outputs`_.
@@ -14,7 +14,11 @@ Command line options for test execution
 ---------------------------------------
 
   --rpa                   Turn on `generic automation`_ mode.
+  --language <lang>       Activate localization_. `lang` can be a name or a code
+                          of a `built-in language <Translations_>`__, or a path
+                          or a module name of a custom language file.
   -F, --extension <value>  `Parse only these files`_ when executing a directory.
+  -I, --parseinclude <pattern>  `Parse only matching files`_ when executing a directory.
   -N, --name <name>       `Sets the name`_ of the top-level test suite.
   -D, --doc <document>    `Sets the documentation`_ of the top-level test suite.
   -M, --metadata <name:value>  `Sets free metadata`_ for the top level test suite.
@@ -28,24 +32,26 @@ Command line options for test execution
                           `output file`_ to be re-executed.
   -i, --include <tag>     `Selects the test cases`_ by tag.
   -e, --exclude <tag>     `Selects the test cases`_ by tag.
-  -c, --critical <tag>    Tests that have the given tag are `considered critical`_.
-  -n, --noncritical <tag>  Tests that have the given tag are `not critical`_.
+  --skip <tag>            Tests having given tag will be `skipped`_. Tag can be a pattern.
+  --skiponfailure <tag>   Tests having given tag will be `skipped`_ if they fail.
   -v, --variable <name:value>   Sets `individual variables`_.
   -V, --variablefile <path:args>  Sets variables using `variable files`_.
   -d, --outputdir <dir>   Defines where to `create output files`_.
   -o, --output <file>     Sets the path to the generated `output file`_.
+  --legacyoutput          Creates output file in `Robot Framework 6.x compatible format`_.
   -l, --log <file>        Sets the path to the generated `log file`_.
   -r, --report <file>     Sets the path to the generated `report file`_.
   -x, --xunit <file>      Sets the path to the generated `xUnit compatible result file`_.
-  --xunitskipnoncritical  Mark non-critical tests on `xUnit compatible result file`_ as skipped.
   -b, --debugfile <file>  A `debug file`_ that is written during execution.
-  -T, --timestampoutputs  `Adds a timestamp`_ to all output files.
+  -T, --timestampoutputs  `Adds a timestamp`_ to `output files`_ listed above.
   --splitlog              `Split log file`_ into smaller pieces that open in
                           browser transparently.
   --logtitle <title>      `Sets a title`_ for the generated test log.
   --reporttitle <title>   `Sets a title`_ for the generated test report.
   --reportbackground <colors>  `Sets background colors`_ of the generated report.
-  --maxerrorlines <lines>  Sets the number of `error lines`_ shown in reports when tests fail.
+  --maxerrorlines <lines>  Sets the number of `error lines`_ shown in report when tests fail.
+  --maxassignlength <characters>  Sets the number of characters shown in log when
+                           `variables are assigned <Automatically logging assigned variable value_>`__.
   -L, --loglevel <level>  `Sets the threshold level`_ for logging. Optionally
                           the default `visible log level`_ can be given
                           separated with a colon (:).
@@ -56,12 +62,13 @@ Command line options for test execution
   --tagstatcombine <tags:title>  Creates `combined statistics based on tags`_.
   --tagdoc <pattern:doc>  Adds `documentation to the specified tags`_.
   --tagstatlink <pattern:link:title>  Adds `external links`_ to the *Statistics by Tag* table.
-  --removekeywords <all|passed|name:pattern|tag:pattern|for|wuks>  `Removes keyword data`_
+  --expandkeywords <name:pattern|tag:pattern>  Automatically `expand keywords`_
+                          in the generated log file.
+  --removekeywords <all|passed|name:pattern|tag:pattern|for|while|wuks>  `Removes keyword data`_
                           from the generated log file.
-  --flattenkeywords <for|foritem|name:pattern|tag:pattern>  `Flattens keywords`_
+  --flattenkeywords <for|while|iteration|name:pattern|tag:pattern>  `Flattens keywords`_
                           in the generated log file.
   --listener <name:args>  `Sets a listener`_ for monitoring test execution.
-  --warnonskippedfiles    Deprecated. Nowadays all skipped files are reported.
   --nostatusrc            Sets the `return code`_ to zero regardless of failures
                           in test cases. Error codes are returned normally.
   --runemptysuite         Executes tests also if the selected `test suites are empty`_.
@@ -69,10 +76,10 @@ Command line options for test execution
                           keywords originating from test libraries. Useful for
                           validating test data syntax.
   -X, --exitonfailure     `Stops test execution <Stopping when first test case fails_>`__
-                          if any critical test fails.
+                          if any test fails.
   --exitonerror           `Stops test execution <Stopping on parsing or execution error_>`__
                           if any error occurs when parsing test data, importing libraries, and so on.
-  --skipteardownonexit    `Skips teardowns`_ is test execution is prematurely stopped.
+  --skipteardownonexit    `Skips teardowns`_ if test execution is prematurely stopped.
   --prerunmodifier <name:args>    Activate `programmatic modification of test data`_.
   --prerebotmodifier <name:args>  Activate `programmatic modification of results`_.
   --randomize <all|suites|tests|none>  `Randomizes`_ test execution order.
@@ -84,7 +91,6 @@ Command line options for test execution
   -K, --consolemarkers <auto|on|off>  Show `markers on the console`_ when top level
                                       keywords in a test case end.
   -P, --pythonpath <path>  Additional locations to add to the `module search path`_.
-  -E, --escape <what:with>   Deprecated. Use console escape mechanism instead.
   -A, --argumentfile <path>   A text file to `read more arguments`_ from.
   -h, --help              Prints `usage instructions`_.
   --version               Prints the `version information`_.
@@ -103,15 +109,13 @@ Command line options for post-processing outputs
   -s, --suite <name>      `Selects the test suites`_ by name.
   -i, --include <tag>     `Selects the test cases`_ by tag.
   -e, --exclude <tag>     `Selects the test cases`_ by tag.
-  -c, --critical <tag>    Tests that have the given tag are `considered critical`_.
-  -n, --noncritical <tag>  Tests that have the given tag are `not critical`_.
   -d, --outputdir <dir>   Defines where to `create output files`_.
   -o, --output <file>     Sets the path to the generated `output file`_.
+  --legacyoutput          Creates output file in `Robot Framework 6.x compatible format`_.
   -l, --log <file>        Sets the path to the generated `log file`_.
   -r, --report <file>     Sets the path to the generated `report file`_.
   -x, --xunit <file>      Sets the path to the generated `xUnit compatible result file`_.
-  --xunitskipnoncritical  Mark non-critical tests on `xUnit compatible result file`_ as skipped.
-  -T, --timestampoutputs  `Adds a timestamp`_ to all output files.
+  -T, --timestampoutputs  `Adds a timestamp`_ to `output files`_ listed above.
   --splitlog              `Split log file`_ into smaller pieces that open in
                           browser transparently.
   --logtitle <title>      `Sets a title`_ for the generated test log.
@@ -127,6 +131,8 @@ Command line options for post-processing outputs
   --tagstatcombine <tags:title>  Creates `combined statistics based on tags`_.
   --tagdoc <pattern:doc>  Adds `documentation to the specified tags`_.
   --tagstatlink <pattern:link:title>  Adds `external links`_ to the *Statistics by Tag* table.
+  --expandkeywords <name:pattern|tag:pattern>  Automatically `expand keywords`_
+                          in the generated log file.
   --removekeywords <all|passed|name:pattern|tag:pattern|for|wuks>  `Removes keyword data`_
                           from the generated outputs.
   --flattenkeywords <for|foritem|name:pattern|tag:pattern>  `Flattens keywords`_
@@ -141,25 +147,22 @@ Command line options for post-processing outputs
   --prerebotmodifier <name:args>  Activate `programmatic modification of results`_.
   -C, --consolecolors <auto|on|ansi|off>  `Specifies are colors`_ used on the console.
   -P, --pythonpath <path>   Additional locations to add to the `module search path`_.
-  -E, --escape <what:with>   Deprecated. Use console escape mechanism instead.
   -A, --argumentfile <path>   A text file to `read more arguments`_ from.
   -h, --help              Prints `usage instructions`_.
   --version               Prints the `version information`_.
 
-
 .. _generic automation: `Task execution`_
 .. _Parse only these files: `Selecting files to parse`_
-.. _Sets the name: `Setting the name`_
-.. _Sets the documentation: `Setting the documentation`_
-.. _Sets free metadata: `Setting free metadata`_
-.. _Sets the tag(s): `Setting tags`_
-.. _Selects the test cases by name: `By test suite and test case names`_
-.. _Selects the test suites: `Selects the test cases by name`_
+.. _Parse only matching files: `Selecting files to parse`_
+.. _Sets the name: `Setting suite name`_
+.. _Sets the documentation: `Setting suite documentation`_
+.. _Sets free metadata: `Setting free suite metadata`_
+.. _Sets the tag(s): `Setting test tags`_
+.. _Selects the test cases by name: `By test names`_
+.. _Selects the test suites: `By suite names`_
 .. _Selects failed test suites: `Re-executing failed test suites`_
 .. _Selects failed tests: `Re-executing failed test cases`_
 .. _Selects the test cases: `By tag names`_
-.. _considered critical: `Setting criticality`_
-.. _not critical: `considered critical`_
 .. _ContinueOnFailure: `Continue on failure`_
 .. _Skips teardowns: `Handling Teardowns`_
 .. _SkipTeardownOnExit: `Handling Teardowns`_
@@ -168,6 +171,7 @@ Command line options for post-processing outputs
 .. _individual variables: `Setting variables in command line`_
 
 .. _create output files: `Output directory`_
+.. _Robot Framework 6.x compatible format: `Legacy output file format`_
 .. _Adds a timestamp: `Timestamping output files`_
 .. _Split log file: `Splitting logs`_
 .. _Sets a title: `Setting titles`_
@@ -192,6 +196,7 @@ Command line options for post-processing outputs
 .. _usage instructions: `Getting help and version information`_
 .. _version information: `usage instructions`_
 
+.. _expand keywords: `Automatically expanding keywords`_
 .. _Removes keyword data: `Removing and flattening keywords`_
 .. _Flattens keywords: `Removes keyword data`_
 .. _starting time: `Setting start and end time of execution`_

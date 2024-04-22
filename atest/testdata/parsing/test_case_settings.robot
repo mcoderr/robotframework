@@ -1,27 +1,42 @@
-*** Setting ***
+*** Settings ***
 Test Setup        Log    Default setup
 Test Teardown     Log    Default teardown    INFO
 Force Tags        \    force-1       # Empty tags should be ignored
 Default Tags      @{DEFAULT TAGS}    \    default-3
 Test Timeout      ${TIMEOUT} milliseconds
 
-*** Variable ***
-${VERSION}            1.2
+*** Variables ***
+${VARIABLE}           variable
+${DOC VERSION}        1.2
 @{DEFAULT TAGS}       default-1    default-2    # default-3 added separately
 ${TAG BASE}           test
 @{TEST TAGS}          ${TAG BASE}-1    ${TAG BASE}-2    ${TAG BASE}-3
 ${LOG}                Log
 ${TIMEOUT}            99999
 
-*** Test Case ***
+*** Test Cases ***
 Normal name
     No Operation
 
 test_case names are NOT _forMatted_
     No Operation
 
-...
-    [Documentation]    ... as name is deprecated since 3.1.2
+Name with ${VARIABLE}s works since RF ${{float($DOC_VERSION) + 2}}
+    No Operation
+
+Name with ${NON-EXISTING VARIABLE}
+    No Operation
+
+Name with \${ESCAPED} \${VARIABLE}
+    No Operation
+
+Name with escapes like '\', '\n' and 'c:\path\temp'
+    No Operation
+
+Name with invalid escapes like '\x' and '\uOOPS'
+    No Operation
+
+Name with escaped escapes like '\\', '\\n', '\\x' and 'c:\\path\\temp'
     No Operation
 
 Documentation
@@ -37,11 +52,20 @@ Documentation in multiple rows
     ...                is shortdoc.
     ...
     ...                This documentation has multiple rows
-    ...                and    also    multiple    columns.
+    ...                and also    multiple columns.
+    ...
+    ...                Newlines can also be added literally with "\n".
+    ...                If a row ends with a newline\n
+    ...                or backslash \
+    ...                no automatic newline is added.
+    ...
+    ...                | table | =header= |
+    ...                | foo   |    bar   |
+    ...                | ragged |
     No Operation
 
 Documentation with variables
-    [Documentation]    Variables work in documentation since Robot ${VERSION}.
+    [Documentation]    ${VARIABLE.title()}s work in documentation since RF ${DOC VERSION}.
     No Operation
 
 Documentation with non-existing variables
@@ -50,11 +74,23 @@ Documentation with non-existing variables
     ...                are replaced: "${TIMEOUT}"
     No Operation
 
+Documentation with unclosed variables 1
+    [Documentation]    No closing curly at ${all
+    No Operation
+
+Documentation with unclosed variables 2
+    [Documentation]    Not ${properly {closed}
+    No Operation
+
+Documentation with unclosed variables 3
+    [Documentation]    ${2}nd not ${properly}[closed
+    No Operation
+
 Documentation with escaping
     [Documentation]
     ...    \${VERSION}
     ...    c:\\temp
-    ...    \
+    ...
     ...    \\
     No Operation
 
@@ -114,6 +150,17 @@ Setup and teardown with variables
     No Operation
     [Teardown]    ${LOG}    ${LOG}ged using variables ${2}
 
+Setup and teardown with non-existing variables
+    [Documentation]    FAIL
+    ...    Setup failed:
+    ...    Variable '\${OOOPS}' not found.
+    ...
+    ...    Also teardown failed:
+    ...    Variable '\${OOOPS}' not found.
+    [Setup]    ${OOOPS}
+    No Operation
+    [Teardown]    ${OOOPS}
+
 Override setup and teardown using empty settings
     [Setup]
     No Operation
@@ -138,10 +185,6 @@ Timeout
     [Timeout]    1d
     No Operation
 
-Timeout with message
-    [Timeout]    123456ms    Message
-    No Operation
-
 Default timeout
     No Operation
 
@@ -161,7 +204,7 @@ Invalid timeout
     [Documentation]    FAIL Setup failed:
     ...    Setting test timeout failed: Invalid time string 'invalid'.
     [Timeout]    invalid
-    No Operation
+    Fail    Should not be run
 
 Multiple settings
     [Documentation]    Documentation for this test case
@@ -172,6 +215,19 @@ Multiple settings
     [Teardown]    Log    Test case teardown
 
 Invalid setting
-    [Doc U Ment ation]    There is an error but test is run anyway.
+    [Documentation]    FAIL Non-existing setting 'Invalid'.
     [Invalid]    This is invalid
-    No Operation
+    Fail    Should not be run
+
+Setting not valid with tests
+    [Documentation]    FAIL Setting 'Metadata' is not allowed with tests or tasks.
+    [Metadata]    Not valid.
+    [Arguments]    Not valid.
+    Fail    Should not be run
+
+Small typo should provide recommendation
+    [Documentation]    FAIL
+    ...    Non-existing setting 'Doc U ment a tion'. Did you mean:
+    ...    ${SPACE*4}Documentation
+    [Doc U ment a tion]    This actually worked before RF 3.2.
+    Fail    Should not be run

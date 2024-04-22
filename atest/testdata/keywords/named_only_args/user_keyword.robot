@@ -48,11 +48,11 @@ Missing multiple values
     [Documentation]    FAIL Keyword 'Many Kw Only Args' missing named-only arguments 'first' and 'third'.
     Many Kw Only Args    second=xxx
 
-Unexpected keyword argumemt
+Unexpected keyword argument
     [Documentation]    FAIL Keyword 'Kw Only Arg' got unexpected named argument 'invalid'.
     Kw Only Arg    kwo=value    invalid=ooops
 
-Multiple unexpected keyword argumemt
+Multiple unexpected keyword argument
     [Documentation]    FAIL Keyword 'Kw Only Arg' got unexpected named arguments 'invalid' and 'ooops'.
     Kw Only Arg    kwo=value    invalid=ooops    ooops=invalid
 
@@ -80,32 +80,49 @@ With other arguments
     ${result} =    All Arg Types    k3=!    kwo_def=k2    k4=!!!    pos_req=p1    pos_def=p2    kwo_req=k1
     Should Be Equal    ${result}    p1-p2-k1-k2-k3=!-k4=!!!
 
+Argument name as variable
+    ${name} =    Set Variable    kwo
+    ${result} =    Kw Only Arg    ${name}=value
+    Should Be Equal    ${result}    value
+    ${result} =    Kw Only Arg    k${name[1]}o=xxx
+    Should Be Equal    ${result}    xxx
+    ${result} =    Kw Only Arg With Default    another=${name}    ${name}=${EMPTY}
+    Should Be Equal    ${result}    -kwo
+
+Argument name as non-existing variable
+    [Documentation]    FAIL Variable '${i do not exist}' not found.
+    Kw Only Arg    ${i do not exist}=value
+
+With positional argument containing equal sign
+    ${result} =    Kw Only Arg With Varargs    One more time    a=1    <=    2    kwo=No escaping needed!
+    Should Be Equal    ${result}    One more time-a=1-<=-2-No escaping needed!
+
 *** Keywords ***
 Kw Only Arg
     [Arguments]    @{}    ${kwo}
-    [Return]    ${kwo}
+    RETURN    ${kwo}
 
 Many Kw Only Args
     [Arguments]    @{}    ${first}    ${second}    ${third}
     ${result} =    Evaluate    $first + $second + $third
-    [Return]    ${result}
+    RETURN    ${result}
 
 Kw Only Arg With Default
     [Arguments]    @{}    ${kwo}=default    ${another}=another
-    [Return]    ${kwo}-${another}
+    RETURN    ${kwo}-${another}
 
 Mandatory After Defaults
     [Arguments]    @{}    ${default1}=xxx    ${mandatory}    ${default2}=zzz
-    [Return]    ${default1}-${mandatory}-${default2}
+    RETURN    ${default1}-${mandatory}-${default2}
 
 Kw Only Arg With Variable In Default
     [Arguments]    @{}    ${ko1}=${1}    ${ko2}=${VAR}    ${ko3}=${ko1}
-    [Return]    ${ko1}-${ko2}-${ko3}
+    RETURN    ${ko1}-${ko2}-${ko3}
 
 Kw Only Arg With Varargs
     [Arguments]    @{varargs}    ${kwo}
     ${result} =    Catenate    SEPARATOR=-    @{varargs}    ${kwo}
-    [Return]    ${result}
+    RETURN    ${result}
 
 All Arg Types
     [Arguments]    ${pos_req}    ${pos_def}=pd    @{varargs}
@@ -114,4 +131,4 @@ All Arg Types
     ${result} =    Catenate    SEPARATOR=-
     ...    ${pos_req}    ${pos_def}    @{varargs}
     ...    ${kwo_req}    ${kwo_def}    @{kwargs}
-    [Return]    ${result}
+    RETURN    ${result}

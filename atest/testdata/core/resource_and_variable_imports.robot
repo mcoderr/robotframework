@@ -1,24 +1,26 @@
 *** Settings ***
-Documentation   NO RIDE: Imports contain invalid syntax on purpose
-
 Resource     resources_and_variables/resources.robot
-Resource     RESOURCES_AND_VARIABLES/resources.robot  # Normalize on Windows
 RESOURCE     ${resource_dir}/resources2.robot
 VARIABLES    resources_and_variables/variables.py
 Variables    ${variables2_file}
 
 # Arguments to variable files
-Var I able s    resources_and_variables/dynamic_variables.py    # No args works
-variables    resources_and_variables/dynamic_variables.py    One arg works
+varIables    resources_and_variables/dynamic_variables.py    One arg works
+Variables    resources_and_variables/dynamic_variables.py    Two args    works
 Variables    resources_and_variables/dynamic_variables.py
-...          Two args   returns invalid
+...          Three args    returns None    which is invalid
 Variables    resources_and_variables/dynamic_variables.py
-...          More   args   raises    exception
+...          Four    args    raises    exception
 Variables    resources_and_variables/dynamicVariables.py
 ...          This    ${1}    ${works}    back \\ slash    \${escaped}    ${CURDIR}
 
+# Invalid arguments to variable files
+Variables    resources_and_variables/variables.py    static    does    not    accept    args
+Variables    resources_and_variables/dynamic_variables.py    # No args fails
+Variables    resources_and_variables/dynamic_variables.py    More    than     four    arguments    fails
+
 # Resources and variables in PYTHONPATH
-Res our ce     resource_in_pythonpath.robot
+Resource     resource_in_pythonpath.robot
 resource     resvar_subdir/resource_in_pythonpath_2.robot
 Variables    variables_in_pythonpath.py
 Variables    resvar_subdir/variables_in_pythonpath_2.py
@@ -45,6 +47,9 @@ Variables    ${resource_dir}/invalid_variable_file.py
 Variables    resources_and_variables/dynamicVariables.py    ${non_existing_var_as_arg}
 Variables    resources_and_variables/invalid_list_variable.py
 Variables
+
+# Normalized and ignored as duplicate on case-insensitive file systems
+Resource     RESOURCES_AND_VARIABLES/resources.robot
 
 *** Variables ***
 ${resource_dir}       ${CURDIR}${/}resources_and_variables
@@ -81,23 +86,15 @@ Invalid List Variable
     Variable Should Not Exist  \@{invalid_list}
     Variable Should Not Exist  \${var_in_invalid_list_variable_file}
 
-Dynamic Variable File With No Args
-    Variable Should Not Exist  $no_args_vars
-    Variable Should Not Exist  $one_arg_vars
+Dynamic Variable File
+    Variable Should Not Exist  $NOT_VARIABLE
     Variable Should Not Exist  $get_variables
-    Log Variables
-    Should Be Equal  ${dyn_no_args_get_var}  Dyn var got with no args from get_variables
-    Should Be Equal  ${dyn_no_args_get_var_2}  ${2}
-    Should Be Equal  @{dyn_no_args_get_var_list}[0]  one
-    Should Be Equal  @{dyn_no_args_get_var_list}[1]  ${2}
-
-Dynamic Variable File With One Arg
-    Should Be Equal  ${dyn_one_arg_get_var}  Dyn var got with one arg from get_variables
-    Should Be Equal  ${dyn_one_arg_get_var_False}  ${False}
-    Should Be Equal  @{dyn_one_arg_get_var_list}[0]  one
-    Should Be Equal  @{dyn_one_arg_get_var_list}[1]  ${False}
-    ${dict} =  Set Variable  @{dyn_one_arg_get_var_list}[2]
-    Should Be Equal  ${dict['dyn_no_args_get_var_2']}  ${2}
+    Should Be Equal  ${dyn_one_arg}           Dynamic variable got with one argument
+    Should Be Equal  ${dyn_one_arg_1}         ${1}
+    Should Be Equal  ${dyn_one_arg_list}      ${{['one', 1]}}
+    Should Be Equal  ${dyn_two_args}          Dynamic variable got with two arguments
+    Should Be Equal  ${dyn_two_args_False}    ${False}
+    Should Be Equal  ${dyn_two_args_list}     ${{['two', 2]}}
 
 Dynamic Variable File With Variables And Backslashes In Args
     Should Be Equal  ${dyn_multi_args_getVar}  Dyn var got with multiple args from getVariables
@@ -125,6 +122,6 @@ Resource File In PYTHONPATH
 Variable File In PYTHONPATH
     Should Be Equal  ${PPATH_VARFILE}  Variable from variable file in PYTHONPATH
     Should Be Equal  ${PPATH_VARFILE_2}  Variable from variable file in PYTHONPATH (version 2)
-    Should Be Equal  @{PPATH_VARFILE_2_LIST}[0]  Variable from variable file
-    Should Be Equal  @{PPATH_VARFILE_2_LIST}[1]  in PYTHONPATH
-    Should Be Equal  @{PPATH_VARFILE_2_LIST}[2]  (version 2)
+    Should Be Equal  ${PPATH_VARFILE_2_LIST}[0]  Variable from variable file
+    Should Be Equal  ${PPATH_VARFILE_2_LIST}[1]  in PYTHONPATH
+    Should Be Equal  ${PPATH_VARFILE_2_LIST}[2]  (version 2)

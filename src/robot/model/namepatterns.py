@@ -13,42 +13,23 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from robot.utils import MultiMatcher, py2to3
+from typing import Iterable, Iterator, Sequence
+
+from robot.utils import MultiMatcher
 
 
-@py2to3
-class _NamePatterns(object):
+class NamePatterns(Iterable[str]):
 
-    def __init__(self, patterns=None):
-        self._matcher = MultiMatcher(patterns, ignore='_')
+    def __init__(self, patterns: Sequence[str] = (), ignore: Sequence[str] = '_'):
+        self.matcher = MultiMatcher(patterns, ignore)
 
-    def match(self, name, longname=None):
-        return self._match(name) or longname and self._match_longname(longname)
+    def match(self, name: str, full_name: 'str|None' = None) -> bool:
+        match = self.matcher.match
+        return bool(match(name) or full_name and match(full_name))
 
-    def _match(self, name):
-        return self._matcher.match(name)
+    def __bool__(self) -> bool:
+        return bool(self.matcher)
 
-    def _match_longname(self, name):
-        raise NotImplementedError
-
-    def __nonzero__(self):
-        return bool(self._matcher)
-
-    def __iter__(self):
-        return iter(self._matcher)
-
-
-class SuiteNamePatterns(_NamePatterns):
-
-    def _match_longname(self, name):
-        while '.' in name:
-            if self._match(name):
-                return True
-            name = name.split('.', 1)[1]
-        return False
-
-
-class TestNamePatterns(_NamePatterns):
-
-    def _match_longname(self, name):
-        return self._match(name)
+    def __iter__(self) -> Iterator[str]:
+        for matcher in self.matcher:
+            yield matcher.pattern

@@ -1,18 +1,36 @@
 *** Settings ***
-Resource          process_resource.robot
-Suite Teardown    Remove Files    ${STDOUT}    ${STDERR}
+Suite Teardown      Remove Files    ${STDOUT}    ${STDERR}
+Resource            process_resource.robot
 
 *** Variables ***
-@{COMMAND}        python    ${CURDIR}/files/timeout.py
+@{COMMAND}          python    ${CURDIR}/files/timeout.py
+@{QUICK COMMAND}    python    ${CURDIR}/files/timeout.py    0.1
 
 *** Test Cases ***
 Finish before timeout
-    ${result} =    Run Process    @{COMMAND}
+    ${result} =    Run Process    @{QUICK COMMAND}
+    Should not be terminated    ${result}
+
+Disable timeout with nONe
+    ${result} =    Run Process    @{QUICK COMMAND}    timeout=nONe
+    Should not be terminated    ${result}
+
+Disable timeout with empty string
+    [Documentation]   Verifying that backwards compatibility is honored
+    ${result} =    Run Process    @{QUICK COMMAND}    timeout=
+    Should not be terminated    ${result}
+
+Disable timeout with zero
+    ${result} =    Run Process    @{QUICK COMMAND}    timeout=0
+    Should not be terminated    ${result}
+
+Disable timeout with negative value
+    ${result} =    Run Process    @{QUICK COMMAND}    timeout=-1 day
     Should not be terminated    ${result}
 
 On timeout process is terminated by default (w/ default streams)
     ${result} =    Run Process    @{COMMAND}    timeout=200ms
-    Should be terminated    ${result}    empty output=os.sep == '/' and sys.platform.startswith('java')
+    Should be terminated    ${result}
 
 On timeout process is terminated by default (w/ custom streams)
     ${result} =    Run Process    @{COMMAND}    timeout=200ms
@@ -21,7 +39,7 @@ On timeout process is terminated by default (w/ custom streams)
 
 On timeout process can be killed (w/ default streams)
     ${result} =    Run Process    @{COMMAND}    timeout=0.2    on_timeout=kill
-    Should be terminated    ${result}    empty output=os.sep == '/' and sys.platform.startswith('java1.8')
+    Should be terminated    ${result}
 
 On timeout process can be killed (w/ custom streams)
     ${result} =    Run Process    @{COMMAND}    timeout=0.2    on_timeout=KiLL
@@ -29,7 +47,7 @@ On timeout process can be killed (w/ custom streams)
     Should be terminated    ${result}
 
 On timeout process can be left running
-    ${result} =    Run Process    @{COMMAND}    timeout=0.2
+    ${result} =    Run Process    @{COMMAND}    timeout=0.2 seconds
     ...    on_timeout=CONTINUE    alias=exceed
     Should Be Equal    ${result}    ${None}
     ${result} =    Wait For Process    handle=exceed
@@ -43,12 +61,7 @@ Should not be terminated
     Should Be Equal    ${result.stderr}    start stderr\nend stderr
 
 Should be terminated
-    [Arguments]    ${result}    ${empty output}=False
+    [Arguments]    ${result}
     Should Not Be Equal    ${result.rc}    ${0}
-    ${expected stdout}    ${expected stderr} =
-    ...    Run Keyword If    not (${empty output})
-    ...    Create List    start stdout    start stderr
-    ...    ELSE
-    ...    Create List    ${EMPTY}    ${EMPTY}
-    Should Be Equal    ${result.stdout}    ${expected stdout}
-    Should Be Equal    ${result.stderr}    ${expected stderr}
+    Should Be Equal    ${result.stdout}    start stdout
+    Should Be Equal    ${result.stderr}    start stderr

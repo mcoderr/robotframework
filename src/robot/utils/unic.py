@@ -13,77 +13,55 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import sys
 from pprint import PrettyPrinter
-
-from .platform import IRONPYTHON, JYTHON, PY2
-from .robottypes import is_bytes, is_unicode
+from unicodedata import normalize
 
 
-if PY2:
+def safe_str(item):
+    return normalize('NFC', _safe_str(item))
 
-    def unic(item):
-        if isinstance(item, unicode):
-            return item
-        if isinstance(item, (bytes, bytearray)):
-            try:
-                return item.decode('ASCII')
-            except UnicodeError:
-                return u''.join(chr(b) if b < 128 else '\\x%x' % b
-                                for b in bytearray(item))
+
+def _safe_str(item):
+    if isinstance(item, str):
+        return item
+    if isinstance(item, (bytes, bytearray)):
         try:
-            try:
-                return unicode(item)
-            except UnicodeError:
-                return unic(str(item))
-        except:
-            return _unrepresentable_object(item)
-
-else:
-
-    def unic(item):
-        if isinstance(item, str):
-            return item
-        if isinstance(item, (bytes, bytearray)):
-            try:
-                return item.decode('ASCII')
-            except UnicodeError:
-                return ''.join(chr(b) if b < 128 else '\\x%x' % b
-                               for b in item)
-        try:
-            return str(item)
-        except:
-            return _unrepresentable_object(item)
+            return item.decode('ASCII')
+        except UnicodeError:
+            return ''.join(chr(b) if b < 128 else '\\x%x' % b for b in item)
+    try:
+        return str(item)
+    except:
+        return _unrepresentable_object(item)
 
 
-# JVM and .NET seem to handle Unicode normalization automatically. Importing
-# unicodedata on Jython also takes some time so it's better to avoid it.
-if not (JYTHON or IRONPYTHON):
-
-    from unicodedata import normalize
-    _unic = unic
-
-    def unic(item):
-        return normalize('NFC', _unic(item))
-
-
-def prepr(item, width=400):
-    return unic(PrettyRepr(width=width).pformat(item))
+def prepr(item, width=80, sort_dicts=False):
+    return safe_str(PrettyRepr(width=width, sort_dicts=sort_dicts).pformat(item))
 
 
 class PrettyRepr(PrettyPrinter):
 
     def format(self, object, context, maxlevels, level):
         try:
-            if is_unicode(object):
-                return repr(object).lstrip('u'), True, False
-            if is_bytes(object):
-                return 'b' + repr(object).lstrip('b'), True, False
             return PrettyPrinter.format(self, object, context, maxlevels, level)
         except:
             return _unrepresentable_object(object), True, False
 
+    # Don't split strings: https://stackoverflow.com/questions/31485402
+    def _format(self, object, *args, **kwargs):
+        if isinstance(object, (str, bytes, bytearray)):
+            width = self._width
+            self._width = sys.maxsize
+            try:
+                super()._format(object, *args, **kwargs)
+            finally:
+                self._width = width
+        else:
+            super()._format(object, *args, **kwargs)
+
 
 def _unrepresentable_object(item):
     from .error import get_error_message
-    return u"<Unrepresentable object %s. Error: %s>" \
+    return "<Unrepresentable object %s. Error: %s>" \
            % (item.__class__.__name__, get_error_message())

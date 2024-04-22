@@ -7,13 +7,7 @@ See BUILD.rst for packaging and releasing instructions.
 """
 
 from pathlib import Path
-from urllib.request import urlretrieve
-import os
-import shutil
 import sys
-import tarfile
-import tempfile
-import zipfile
 
 assert Path.cwd().resolve() == Path(__file__).resolve().parent
 sys.path.insert(0, 'src')
@@ -27,7 +21,7 @@ from robot.libdoc import libdoc
 REPOSITORY = 'robotframework/robotframework'
 VERSION_PATH = Path('src/robot/version.py')
 VERSION_PATTERN = "VERSION = '(.*)'"
-POM_PATH = Path('pom.xml')
+SETUP_PATH = Path('setup.py')
 POM_VERSION_PATTERN = '<version>(.*)</version>'
 RELEASE_NOTES_PATH = Path('doc/releasenotes/rf-{version}.rst')
 RELEASE_NOTES_TITLE = 'Robot Framework {version}'
@@ -39,9 +33,9 @@ and bug fixes. **MORE intro stuff...**
 All issues targeted for Robot Framework {version.milestone} can be found
 from the `issue tracker milestone`_.
 
-Questions and comments related to the release can be sent to the
-`robotframework-users`_ mailing list or to `Robot Framework Slack`_,
-and possible bugs submitted to the `issue tracker`_.
+Questions and comments related to the release can be sent to the `#devel`
+channel on `Robot Framework Slack`_ and possible bugs submitted to
+the `issue tracker`_.
 
 **REMOVE ``--pre`` from the next command with final releases.**
 If you have pip_ installed, just run
@@ -56,45 +50,46 @@ to install the latest available release or use
 
    pip install robotframework=={version}
 
-to install exactly this version. Alternatively you can download the source
-distribution from PyPI_ and install it manually. For more details and other
-installation approaches, see the `installation instructions`_.
+to install exactly this version. Alternatively you can download the package
+from PyPI_ and install it manually. For more details and other installation
+approaches, see the `installation instructions`_.
 
 Robot Framework {version} was released on {date}.
 
 .. _Robot Framework: http://robotframework.org
+.. _Robot Framework Foundation: http://robotframework.org/foundation
 .. _pip: http://pip-installer.org
 .. _PyPI: https://pypi.python.org/pypi/robotframework
 .. _issue tracker milestone: https://github.com/robotframework/robotframework/issues?q=milestone%3A{version.milestone}
 .. _issue tracker: https://github.com/robotframework/robotframework/issues
 .. _robotframework-users: http://groups.google.com/group/robotframework-users
-.. _Robot Framework Slack: https://robotframework-slack-invite.herokuapp.com
+.. _Slack: http://slack.robotframework.org
+.. _Robot Framework Slack: Slack_
 .. _installation instructions: ../../INSTALL.rst
 '''
 
 
 @task
 def set_version(ctx, version):
-    """Set project version in `src/robot/version.py`` file.
+    """Set project version in `src/robot/version.py`, `setup.py` and `pom.xml`.
 
     Args:
-        version: Project version to set or ``dev`` to set development version.
+        version: Project version to set or `dev` to set development version.
 
     Following PEP-440 compatible version numbers are supported:
     - Final version like 3.0 or 3.1.2.
-    - Alpha, beta or release candidate with ``a``, ``b`` or ``rc`` postfix,
+    - Alpha, beta or release candidate with `a`, `b` or `rc` postfix,
       respectively, and an incremented number like 3.0a1 or 3.0.1rc1.
-    - Development version with ``.dev`` postix and an incremented number like
+    - Development version with `.dev` postix and an incremented number like
       3.0.dev1 or 3.1a1.dev2.
 
-    When the given version is ``dev``, the existing version number is updated
+    When the given version is `dev`, the existing version number is updated
     to the next suitable development version. For example, 3.0 -> 3.0.1.dev1,
     3.1.1 -> 3.1.2.dev1, 3.2a1 -> 3.2a2.dev1, 3.2.dev1 -> 3.2.dev2.
     """
     version = Version(version, VERSION_PATH, VERSION_PATTERN)
     version.write()
-    pom = Version(str(version), POM_PATH, POM_VERSION_PATTERN)
-    pom.write()
+    Version(str(version), SETUP_PATH, VERSION_PATTERN).write()
     print(version)
 
 
@@ -109,10 +104,10 @@ def library_docs(ctx, name):
     """Generate standard library documentation.
 
     Args:
-        name:  Name of the library or ``all`` to generate docs for all libs.
+        name:  Name of the library or `all` to generate docs for all libs.
                Name is case-insensitive and can be shortened as long as it
-               is a unique prefix. For example, ``b`` is equivalent to
-               ``BuiltIn`` and ``di`` equivalent to ``Dialogs``.
+               is a unique prefix. For example, `b` is equivalent to
+               `BuiltIn` and `di` equivalent to `Dialogs`.
     """
     libraries = ['BuiltIn', 'Collections', 'DateTime', 'Dialogs',
                  'OperatingSystem', 'Process', 'Screenshot', 'String',
@@ -124,6 +119,7 @@ def library_docs(ctx, name):
             raise Exit(f"'{name}' is not a unique library prefix.")
     for lib in libraries:
         libdoc(lib, str(Path(f'doc/libraries/{lib}.html')))
+        libdoc(lib, str(Path(f'doc/libraries/{lib}.json')), specdocformat='RAW')
 
 
 @task
@@ -139,8 +135,8 @@ def release_notes(ctx, version=None, username=None, password=None, write=False):
                   possible existing file. Otherwise just print them to the
                   terminal.
 
-    Username and password can also be specified using ``GITHUB_USERNAME`` and
-    ``GITHUB_PASSWORD`` environment variable, respectively. If they aren't
+    Username and password can also be specified using `GITHUB_USERNAME` and
+    `GITHUB_PASSWORD` environment variable, respectively. If they aren't
     specified at all, communication with GitHub is anonymous and typically
     pretty slow.
     """
@@ -159,119 +155,10 @@ def init_labels(ctx, username=None, password=None):
         username: GitHub username.
         password: GitHub password.
 
-    Username and password can also be specified using ``GITHUB_USERNAME`` and
-    ``GITHUB_PASSWORD`` environment variable, respectively.
+    Username and password can also be specified using `GITHUB_USERNAME` and
+    `GITHUB_PASSWORD` environment variable, respectively.
 
-    Should only be executed once when taking ``rellu`` tooling to use or
+    Should only be executed once when taking `rellu` tooling to use or
     when labels it uses have changed.
     """
     initialize_labels(REPOSITORY, username, password)
-
-
-@task
-def jar(ctx, jython_version='2.7.0', pyyaml_version='3.11', remove_dist=False):
-    """Create JAR distribution.
-
-    Downloads Jython JAR and PyYAML if needed.
-
-    Args:
-        jython_version: Jython version to use as a base. Must match version in
-            `jython-standalone-<version>.jar` found from Maven central.
-        pyyaml_version: Version of PyYAML that will be included in the
-            standalone jar. The version must be available from PyPI.
-        remove_dist:  Control is 'dist' directory initially removed or not.
-    """
-    clean(ctx, remove_dist, create_dirs=True)
-    jython_jar = get_jython_jar(jython_version)
-    print(f"Using '{jython_jar}'.")
-    compile_java_files(ctx, jython_jar)
-    unzip_jar(jython_jar)
-    copy_robot_files()
-    pyaml_archive = get_pyyaml(pyyaml_version)
-    extract_and_copy_pyyaml_files(pyyaml_version, pyaml_archive)
-    compile_python_files(ctx, jython_jar)
-    version = Version(path=VERSION_PATH, pattern=VERSION_PATTERN)
-    create_robot_jar(ctx, str(version))
-
-
-def get_jython_jar(version):
-    filename = 'jython-standalone-{0}.jar'.format(version)
-    url = (f'http://search.maven.org/remotecontent?filepath=org/python/'
-           f'jython-standalone/{version}/{filename}')
-    return get_extlib_file(filename, url)
-
-
-def get_pyyaml(version):
-    filename = f'PyYAML-{version}.tar.gz'
-    url = f'https://pypi.python.org/packages/source/P/PyYAML/{filename}'
-    return get_extlib_file(filename, url)
-
-
-def get_extlib_file(filename, url):
-    lib = Path('ext-lib')
-    path = Path(lib, filename)
-    if path.exists():
-        return path
-    print(f"'{filename}' not found, downloading it from '{url}'.")
-    lib.mkdir(exist_ok=True)
-    urlretrieve(url, path)
-    return path
-
-
-def extract_and_copy_pyyaml_files(version, filename, build_dir='build'):
-    extracted = Path(tempfile.gettempdir(), 'pyyaml-for-robot')
-    if extracted.is_dir():
-        shutil.rmtree(str(extracted))
-    print(f"Extracting '{filename}' to '{extracted}'.")
-    with tarfile.open(filename) as t:
-        t.extractall(extracted)
-    source = Path(extracted, f'PyYAML-{version}', 'lib', 'yaml')
-    target = Path(build_dir, 'Lib', 'yaml')
-    shutil.copytree(str(source), str(target),
-                    ignore=shutil.ignore_patterns('*.pyc'))
-
-
-def compile_java_files(ctx, jython_jar, build_dir='build'):
-    root = Path('src/java/org/robotframework')
-    files = [str(path) for path in root.iterdir() if path.suffix == '.java']
-    print(f'Compiling {len(files)} Java files.')
-    ctx.run(f"javac -d {build_dir} -target 1.7 -source 1.7 -cp {jython_jar} "
-            f"{' '.join(files)}")
-
-
-def unzip_jar(path, target='build'):
-    zipfile.ZipFile(path).extractall(target)
-
-
-def copy_robot_files(build_dir='build'):
-    source = Path('src', 'robot')
-    target = Path(build_dir, 'Lib', 'robot')
-    shutil.copytree(str(source), str(target),
-                    ignore=shutil.ignore_patterns('*.pyc'))
-    shutil.rmtree(str(Path(target, 'htmldata', 'testdata')))
-
-
-def compile_python_files(ctx, jython_jar, build_dir='build'):
-    ctx.run(f"java -jar {jython_jar} -m compileall -x '.*3.py' {build_dir}")
-    # Jython will not work without its py-files, but robot will
-    for directory, _, files in os.walk(str(Path(build_dir, 'Lib', 'robot'))):
-        for name in files:
-            if name.endswith('.py'):
-                Path(directory, name).unlink()
-
-
-def create_robot_jar(ctx, version, source='build'):
-    write_manifest(version, source)
-    target = Path(f'dist/robotframework-{version}.jar')
-    ctx.run(f'jar cvfM {target} -C {source} .')
-    print(f"Created '{target}'.")
-
-
-def write_manifest(version, build_dir='build'):
-    with open(Path(build_dir, 'META-INF', 'MANIFEST.MF'), 'w') as mf:
-        mf.write(f'''\
-Manifest-Version: 1.0
-Main-Class: org.robotframework.RobotFramework
-Specification-Version: 2
-Implementation-Version: {version}
-''')

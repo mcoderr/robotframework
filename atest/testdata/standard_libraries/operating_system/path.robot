@@ -13,17 +13,17 @@ Join Path
 
 Join Paths
     @{paths} =    Join Paths    base    example    other
-    Should Be Equal    @{paths}[0]    base${/}example
-    Should Be Equal    @{paths}[1]    base${/}other
+    Should Be Equal    ${paths}[0]    base${/}example
+    Should Be Equal    ${paths}[1]    base${/}other
     Length Should Be    ${paths}    2
     @{paths} =    Join Paths    ${CURDIR}${/}my${/}base    %{TEMPDIR}${/}example    other
-    Should Be Equal    @{paths}[0]    %{TEMPDIR}${/}example
-    Should Be Equal    @{paths}[1]    ${CURDIR}${/}my${/}base${/}other
+    Should Be Equal    ${paths}[0]    %{TEMPDIR}${/}example
+    Should Be Equal    ${paths}[1]    ${CURDIR}${/}my${/}base${/}other
     Length Should Be    ${paths}    2
     @{paths} =    Join Paths    my${/}base    example${/}path${/}    other    one${/}more
-    Should Be Equal    @{paths}[0]    my${/}base${/}example${/}path
-    Should Be Equal    @{paths}[1]    my${/}base${/}other
-    Should Be Equal    @{paths}[2]    my${/}base${/}one${/}more
+    Should Be Equal    ${paths}[0]    my${/}base${/}example${/}path
+    Should Be Equal    ${paths}[1]    my${/}base${/}other
+    Should Be Equal    ${paths}[2]    my${/}base${/}one${/}more
     Length Should Be    ${paths}    3
 
 Normalize Path
@@ -108,6 +108,12 @@ With Space
     Normalize Path And Check    with space/./and another/.    with space${/}and another
     Split Path And Check    with space/and another    with space    and another
     Split Extension And Check    with space.and another    with space    and another
+
+Path as `pathlib.Path`
+    Join Path And Check    foo${/}bar    ${{pathlib.Path('foo')}}    ${{pathlib.Path('bar')}}
+    Normalize Path And Check     ${{pathlib.Path('foo/../bar')}}    bar
+    Split Path And Check         ${{pathlib.Path('foo/bar')}}       foo    bar
+    Split Extension And Check    ${{pathlib.Path('foo.bar')}}       foo    bar
 
 *** Keywords ***
 Join Path And Check

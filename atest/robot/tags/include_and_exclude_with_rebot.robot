@@ -1,5 +1,8 @@
 *** Settings ***
-Documentation     Testing rebot's include/exclude functionality. Tests also include/exclude first during test execution and then with rebot.
+Documentation     Test --include and --exclude with Rebot.
+...
+...               These options working together with --suite and --test
+...               is tested in filter_by_names.robot suite file.
 Suite Setup       Create Input Files
 Suite Teardown    Remove File    ${INPUT FILE}
 Test Template     Run And Check Include And Exclude
@@ -9,7 +12,7 @@ Resource          rebot_resource.robot
 ${TEST FILE}      tags/include_and_exclude.robot
 ${TEST FILE2}     tags/no_force_no_default_tags.robot
 ${INPUT FILE}     %{TEMPDIR}/robot-tags-input.xml
-${INPUT FILE 2}    %{TEMPDIR}/robot-tags-input-2.xml
+${INPUT FILE 2}   %{TEMPDIR}/robot-tags-input-2.xml
 ${INPUT FILES}    ${INPUT FILE}
 @{INCL_ALL}       Incl-1    Incl-12    Incl-123
 @{EXCL_ALL}       excl-1    Excl-12    Excl-123
@@ -18,6 +21,9 @@ ${INPUT FILES}    ${INPUT FILE}
 *** Test Cases ***
 No Includes Or Excludes
     ${EMPTY}    @{ALL}
+
+Empty iclude and exclude are ignored
+    --include= --exclude=    @{ALL}    times_are_none=False
 
 One Include
     --include incl1    @{INCL_ALL}
@@ -85,12 +91,10 @@ Include and Exclude with NOT
 
 Select tests without any tags
     [Setup]    Set Test Variable    ${INPUT FILES}    ${INPUT FILE 2}
-    # Using just '*' won't work with Jython on Windows due to its auto-globbing
     --exclude *ORwhatever    No Own Tags No Force Nor Default    Own Tags Empty No Force Nor Default
 
 Select tests with any tag
     [Setup]    Set Test Variable    ${INPUT FILES}    ${INPUT FILE 2}
-    # Using just '*' won't work with Jython on Windows due to its auto-globbing
     --include *AND*    Own Tags No Force Nor Default
 
 Non Matching Include
@@ -127,21 +131,21 @@ Elapsed Time
     [Template]    NONE
     # Rebot hand-edited output with predefined times and check that times are read correctly.
     Run Rebot    ${EMPTY}    rebot/times.xml
-    Check Times    ${SUITE.tests[0]}    20061227 12:00:00.000    20061227 12:00:01.000    1000
-    Check Times    ${SUITE.tests[1]}    20061227 12:00:01.000    20061227 12:00:03.000    2000
-    Check Times    ${SUITE.tests[2]}    20061227 12:00:03.000    20061227 12:00:07.000    4000
-    Check Times    ${SUITE.tests[3]}    20061227 12:00:07.000    20061227 12:00:07.001    0001
-    Check Times    ${SUITE.tests[4]}    20061227 12:00:07.001    20061227 12:00:07.003    0002
-    Check Times    ${SUITE.tests[5]}    20061227 12:00:07.003    20061227 12:00:07.007    0004
-    Check Times    ${SUITE}    20061227 11:59:59.000    20061227 12:00:08.999    9999
+    Times Should Be    ${SUITE.tests[0]}    2006-12-27 12:00:00.000    2006-12-27 12:00:01.000    1.000
+    Times Should Be    ${SUITE.tests[1]}    2006-12-27 12:00:01.000    2006-12-27 12:00:03.000    2.000
+    Times Should Be    ${SUITE.tests[2]}    2006-12-27 12:00:03.000    2006-12-27 12:00:07.000    4.000
+    Times Should Be    ${SUITE.tests[3]}    2006-12-27 12:00:07.000    2006-12-27 12:00:07.001    0.001
+    Times Should Be    ${SUITE.tests[4]}    2006-12-27 12:00:07.001    2006-12-27 12:00:07.003    0.002
+    Times Should Be    ${SUITE.tests[5]}    2006-12-27 12:00:07.003    2006-12-27 12:00:07.007    0.004
+    Times Should Be    ${SUITE}             2006-12-27 11:59:59.000    2006-12-27 12:00:08.999    9.999
     Length Should Be    ${SUITE.tests}    6
     # Filter ouput created in earlier step and check that times are set accordingly.
     Copy Previous Outfile
     Run Rebot    --include incl2 --include excl3    ${OUTFILE COPY}
-    Check Times    ${SUITE}    ${NONE}    ${NONE}    6004
-    Check Times    ${SUITE.tests[0]}    20061227 12:00:01.000    20061227 12:00:03.000    2000
-    Check Times    ${SUITE.tests[1]}    20061227 12:00:03.000    20061227 12:00:07.000    4000
-    Check Times    ${SUITE.tests[2]}    20061227 12:00:07.003    20061227 12:00:07.007    004
+    Times Should Be    ${SUITE}             ${NONE}                    ${NONE}                    6.004
+    Times Should Be    ${SUITE.tests[0]}    2006-12-27 12:00:01.000    2006-12-27 12:00:03.000    2.000
+    Times Should Be    ${SUITE.tests[1]}    2006-12-27 12:00:03.000    2006-12-27 12:00:07.000    4.000
+    Times Should Be    ${SUITE.tests[2]}    2006-12-27 12:00:07.003    2006-12-27 12:00:07.007    0.004
     Length Should Be    ${SUITE.tests}    3
 
 *** Keywords ***
@@ -150,18 +154,20 @@ Create Input Files
     Create Output With Robot    ${INPUT FILE}    ${EMPTY}    ${TEST FILE}
 
 Run And Check Include And Exclude
-    [Arguments]    ${params}    @{tests}
+    [Arguments]    ${params}    @{tests}    ${times_are_none}=${{bool($params)}}
     Run Rebot    ${params}    ${INPUT FILES}
     Stderr Should Be Empty
     Should Contain Tests    ${SUITE}    @{tests}
-    Should Be True    ${SUITE.statistics.all.passed} == len(@{tests})
-    Should Be True    ${SUITE.statistics.all.failed} == 0
-    ${exp start} =    Set Variable If    "${params}"    ${NONE}    ${ORIG START}
-    ${exp end} =    Set Variable If    "${params}"    ${NONE}    ${ORIG END}
-    Should Be Equal    ${SUITE.starttime}    ${exp start}
-    Should Be Equal    ${SUITE.endtime}    ${exp end}
-    Elapsed Time Should Be Valid    ${SUITE.elapsedtime}
-    Should Be True    ${SUITE.elapsedtime} <= ${ORIG ELAPSED}
+    Should Be True    $SUITE.statistics.passed == len($tests)
+    Should Be True    $SUITE.statistics.failed == 0
+    IF    ${times_are_none}
+        Should Be Equal    ${SUITE.start_time}    ${None}
+        Should Be Equal    ${SUITE.end_time}      ${None}
+    ELSE
+        Should Be Equal    ${SUITE.start_time}    ${ORIG_START}
+        Should Be Equal    ${SUITE.end_time}      ${ORIG_END}
+    END
+    Elapsed Time Should Be Valid    ${SUITE.elapsed_time}    maximum=${ORIG_ELAPSED.total_seconds()} + 1
 
 Run And Check Error
     [Arguments]    ${params}    ${filter msg}    ${suite name}=Include And Exclude

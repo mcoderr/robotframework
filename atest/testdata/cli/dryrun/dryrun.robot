@@ -13,7 +13,6 @@ Suite Setup       ${SUITE SETUP}
 # Library keywords get NOT_RUN status. That should be OK teardown status.
 Suite Teardown    No Operation
 
-
 *** Variables ***
 ${SETUP}          No Operation
 ${TEARDOWN}       Teardown
@@ -28,6 +27,8 @@ Passing keywords
 Keywords with embedded arguments
     Embedded arguments here
     Embedded args rock here
+    Some embedded and normal args    42
+    Some embedded and normal args    ${does not exist}
     This is validated
 
 Library keyword with embedded arguments
@@ -54,6 +55,14 @@ List variables are not checked in keyword arguments
     Fail    @{list}    @{nonex}
     This is validated
 
+Dict variables are not checked in keyword arguments
+    [Documentation]    See the doc of the previous test
+    &{dict} =    Create Dictionary    a1=1    a2=2    a3=3
+    Anarchy in the UK    &{dict}
+    Anarchy in the UK    &{nonex}
+    Fail    &{list}    &{nonex}
+    This is validated
+
 Variables are not checked in when arguments are embedded
     [Documentation]    See the doc of the previous test
     Embedded ${TESTNAME} here
@@ -74,6 +83,10 @@ User keyword return value
     ${quux}=    Some Return Value    ${foo}    ${bar}
     This is validated
 
+Non-existing variable in user keyword return value
+    Ooops Return Value
+    This is validated
+
 Test Setup And Teardown
     [Documentation]    FAIL    No keyword with name 'Does not exist' found.\n\n
     ...    Also teardown failed:\n
@@ -89,14 +102,12 @@ Keyword Teardown
     Keyword with Teardown
     This is validated
 
-For Loops
-    [Documentation]    FAIL    Keyword 'resource.Anarchy in the UK' expected 3 arguments, got 2.
-    ::FOR    ${i}    IN RANGE    10
-    \    Log    ${i}
-    \    Simple UK
-    For Loop in UK
-    ::FOR    ${a}    ${b}    IN RANGE    ${NONE}
-    \    Anarchy in the UK    1    2
+Keyword teardown with non-existing variable is ignored
+    Keyword with teardown with non-existing variable
+    This is validated
+
+Keyword teardown with existing variable is resolved and executed
+    Keyword with teardown with existing variable
     This is validated
 
 Non-existing keyword name
@@ -105,15 +116,20 @@ Non-existing keyword name
     This is validated
 
 Invalid syntax in UK
-    [Documentation]    FAIL    Invalid argument specification: Invalid argument syntax '${arg'.
+    [Documentation]    FAIL
+    ...    Invalid argument specification: Multiple errors:
+    ...    - Invalid argument syntax '\${oops'.
+    ...    - Non-default argument after default arguments.
     Invalid Syntax UK
     This is validated
 
 Multiple Failures
     [Documentation]    FAIL    Several failures occurred:\n\n
-    ...    1) Keyword 'BuiltIn.Should Be Equal' expected 2 to 5 arguments, got 1.\n\n
-    ...    2) Invalid argument specification: Invalid argument syntax '${arg'.\n\n
-    ...    3) Keyword 'BuiltIn.Log' expected 1 to 5 arguments, got 6.\n\n
+    ...    1) Keyword 'BuiltIn.Should Be Equal' expected 2 to 8 arguments, got 1.\n\n
+    ...    2) Invalid argument specification: Multiple errors:\n
+    ...    - Invalid argument syntax '\${oops'.\n
+    ...    - Non-default argument after default arguments.\n\n
+    ...    3) Keyword 'Some Return Value' expected 2 arguments, got 3.\n\n
     ...    4) No keyword with name 'Yet another non-existing keyword' found.\n\n
     ...    5) No keyword with name 'Does not exist' found.
     Should Be Equal    1
@@ -131,21 +147,36 @@ Avoid keyword in dry-run
 Embedded ${args} here
     No Operation
 
+Some ${type} and normal args
+    [Arguments]    ${meaning of life}
+    No Operation
+
 Keyword with Teardown
     No Operation
     [Teardown]    Does not exist
 
+Keyword with teardown with non-existing variable
+    No Operation
+    [Teardown]    ${I DO NOT EXIST}
+
+Keyword with teardown with existing variable
+    No Operation
+    [Teardown]    ${TEARDOWN}    ${I DO NOT EXIST}
+
 Invalid Syntax UK
-    [Arguments]    ${arg
+    [Arguments]    ${arg}=def    ${oops
     No Operation
 
 Some Return Value
     [Arguments]    ${a1}    ${a2}
-    [Return]    ${a1}-${a2}
+    RETURN    ${a1}-${a2}
+
+Ooops return value
+    RETURN    ${ooops}
 
 UK with multiple failures
     Invalid Syntax UK
-    Log    too    many    arguments    here    we    have
+    Some Return Value    too    many    arguments
     Yet another non-existing keyword
 
 Teardown
@@ -167,6 +198,3 @@ Keyword with keywords not run in dry-run
     Keyword not run in dry-run
     Another keyword not run in dry-run
     This is validated
-
-This is validated
-    Log    This is validated

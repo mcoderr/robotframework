@@ -16,9 +16,10 @@
 import sys
 
 from .highlighting import HighlightingStream
+from ..loggerapi import LoggerApi
 
 
-class QuietOutput(object):
+class QuietOutput(LoggerApi):
 
     def __init__(self, colors='AUTO', stderr=None):
         self._stderr = HighlightingStream(stderr or sys.__stderr__, colors)
@@ -28,5 +29,5 @@ class QuietOutput(object):
             self._stderr.error(msg.message, msg.level)
 
 
-class NoOutput(object):
+class NoOutput(LoggerApi):
     pass

@@ -1,7 +1,13 @@
+import os.path
+import functools
+
+from robot.api.deco import library
+
+
 __version__ = 'N/A'  # This should be ignored when version is parsed
 
 
-class NameLibrary:
+class NameLibrary:    # Old-style class on purpose!
     handler_count = 10
 
     def simple1(self):
@@ -98,52 +104,52 @@ class ArgInfoLibrary:
     handler_count = 13
 
     def no_args(self):
-        """[], {}, None, None"""
+        """(), {}, None, None"""
         # Argument inspection had a bug when there was args on function body
         # so better keep some of them around here.
         a=b=c=1
 
     def required1(self, one):
-        """['one'], {}, None, None"""
+        """('one',), {}, None, None"""
 
     def required2(self, one, two):
-        """['one', 'two'], {}, None, None"""
+        """('one', 'two'), {}, None, None"""
 
     def required9(self, one, two, three, four, five, six, seven, eight, nine):
-        """['one','two','three','four','five','six','seven','eight','nine'], \
+        """('one','two','three','four','five','six','seven','eight','nine'), \
            {}, None, None"""
 
     def default1(self, one=1):
-        """['one'], {'one': 1}, None, None"""
+        """('one',), {'one': 1}, None, None"""
 
     def default5(self, one='', two=None, three=3, four='huh', five=True):
-        """['one', 'two', 'three', 'four', 'five'], \
+        """('one', 'two', 'three', 'four', 'five'), \
            {'one': '', 'two': None, 'three': 3, 'four': 'huh', 'five': True}, \
            None, None"""
 
     def required1_default1(self, one, two=''):
-        """['one', 'two'], {'two': ''}, None, None"""
+        """('one', 'two'), {'two': ''}, None, None"""
 
     def required2_default3(self, one, two, three=3, four=4, five=5):
-        """['one', 'two', 'three', 'four', 'five'], \
+        """('one', 'two', 'three', 'four', 'five'), \
            {'three': 3, 'four': 4, 'five': 5}, None, None"""
 
     def varargs(self,*one):
-        """[], {}, 'one', None"""
+        """(), {}, 'one', None"""
 
     def required2_varargs(self, one, two, *three):
-        """['one', 'two'], {}, 'three', None"""
+        """('one', 'two'), {}, 'three', None"""
 
     def req4_def2_varargs(self, one, two, three, four, five=5, six=6, *seven):
-        """['one', 'two', 'three', 'four', 'five', 'six'], \
+        """('one', 'two', 'three', 'four', 'five', 'six'), \
            {'five': 5, 'six': 6}, 'seven', None"""
 
     def req2_def3_varargs_kwargs(self, three, four, five=5, six=6, seven=7, *eight, **nine):
-        """['three', 'four', 'five', 'six', 'seven'], \
-          {'five': 5, 'six': 6, 'seven': 7}, 'eight', 'nine'"""
+        """('three', 'four', 'five', 'six', 'seven'), \
+           {'five': 5, 'six': 6, 'seven': 7}, 'eight', 'nine'"""
 
-    def varargs_kwargs(self,*one, **two):
-        """[], {}, 'one', 'two'"""
+    def varargs_kwargs(self, *one, **two):
+        """(), {}, 'one', 'two'"""
 
 
 class GetattrLibrary:
@@ -171,6 +177,7 @@ class SynonymLibrary:
     another_synonym = handler
 
 
+@library(auto_keywords=True)
 class VersionLibrary:
     ROBOT_LIBRARY_VERSION = '0.1'
     ROBOT_LIBRARY_DOC_FORMAT = 'html'
@@ -189,7 +196,7 @@ class VersionObjectLibrary:
     kw = lambda x:None
 
 
-class RecordingLibrary(object):
+class RecordingLibrary:
     ROBOT_LIBRARY_SCOPE = 'GLOBAL'
 
     def __init__(self):
@@ -211,6 +218,7 @@ class ArgDocDynamicLibrary:
         kws = [('No Arg', [], None),
                ('One Arg', ['arg'], None),
                ('One or Two Args', ['arg', 'darg=dvalue'], None),
+               ('Default as tuple', [('arg',), ('d1', False), ('d2', None)], None),
                ('Many Args', ['*args'], None),
                ('No Arg Spec', None, None),
                ('Multiline', None, 'Multiline\nshort doc!\n\nBody\nhere.')]
@@ -220,11 +228,16 @@ class ArgDocDynamicLibrary:
     def get_keyword_names(self):
         return sorted(self._keywords)
 
-    def run_keyword(self, name, *args):
-        print('*INFO* Executed keyword %s with arguments %s' % (name, args))
+    def run_keyword(self, name, args):
+        print('*INFO* Executed keyword "%s" with arguments %s.' % (name, args))
 
     def get_keyword_documentation(self, name):
-        return self._keywords[name].doc
+        if name in ('__init__', '__intro__'):
+            raise ValueError(f"'{name}' should be used only with Libdoc'")
+        try:
+            return self._keywords[name].doc
+        except KeyError:
+            raise ValueError(f"'{name}' not found")
 
     def get_keyword_arguments(self, name):
         return self._keywords[name].argspec
@@ -242,6 +255,29 @@ class ArgDocDynamicLibraryWithKwargsSupport(ArgDocDynamicLibrary):
         argstr = ' '.join([str(a) for a in args] +
                           ['%s:%s' % kv for kv in sorted(kwargs.items())])
         print('*INFO* Executed keyword %s with arguments %s' % (name, argstr))
+
+
+class DynamicWithSource:
+    path = os.path.normpath(os.path.dirname(__file__) + '/classes.py')
+    keywords = {'only path': path,
+                'path & lineno': path + ':42',
+                'lineno only': ':6475',
+                'invalid path': 'path validity is not validated',
+                'path w/ colon': r'c:\temp\lib.py',
+                'path w/ colon & lineno': r'c:\temp\lib.py:1234567890',
+                'no source': None,
+                'nön-äscii': 'hyvä esimerkki',
+                'nön-äscii utf-8': b'\xe7\xa6\x8f:88',
+                'invalid source': 666}
+
+    def get_keyword_names(self):
+        return list(self.keywords)
+
+    def run_keyword(self, name, args, kws):
+        pass
+
+    def get_keyword_source(self, name):
+        return self.keywords[name]
 
 
 class _KeywordInfo:
@@ -267,3 +303,47 @@ class InvalidGetArgsDynamicLibrary(ArgDocDynamicLibrary):
 class InvalidAttributeDynamicLibrary(ArgDocDynamicLibrary):
     get_keyword_documentation = True
     get_keyword_arguments = False
+
+
+def noop(x):
+    return x
+
+
+def wraps(x):
+    @functools.wraps(x)
+    def wrapper(*a, **k):
+        return x(*a, **k)
+    return wrapper
+
+
+@noop
+@noop
+@functools.total_ordering
+class Decorated:
+
+    @noop
+    def no_wrapper(self):
+        pass
+
+    @noop
+    @wraps
+    @noop
+    @wraps
+    def wrapper(self):
+        pass
+
+    if hasattr(functools, 'lru_cache'):
+        @functools.lru_cache()
+        def external(self):
+            pass
+
+    no_def = lambda self: None
+
+    def __eq__(self, other):
+        return self is other
+
+    def __lt__(self, other):
+        return True
+
+
+NoClassDefinition = type('NoClassDefinition', (), {})

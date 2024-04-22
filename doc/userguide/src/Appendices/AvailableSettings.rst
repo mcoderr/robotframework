@@ -1,20 +1,25 @@
-All available settings in test data
-===================================
+Available settings
+==================
+
+This appendix lists all settings that can be used in different sections.
+
+.. note:: Settings can be localized_. See the Translations_ appendix for
+          supported translations.
 
 .. contents::
    :depth: 2
    :local:
 
-Setting table
--------------
+Setting section
+---------------
 
-The Setting table is used to import test libraries, resource files and
+The Setting section is used to import libraries, resource files and
 variable files and to define metadata for test suites and test
 cases. It can be included in test case files and resource files. Note
-that in a resource file, a Setting table can only include settings for
+that in a resource file, a Setting section can only include settings for
 importing libraries, resources, and variables.
 
-.. table:: Settings available in the Setting table
+.. table:: Settings available in the Setting section
    :class: tabular
 
    +-----------------+--------------------------------------------------------+
@@ -26,20 +31,25 @@ importing libraries, resources, and variables.
    +-----------------+--------------------------------------------------------+
    | Variables       | Used for `taking variable files into use`_.            |
    +-----------------+--------------------------------------------------------+
-   | Documentation   | Used for specifying a `test suite`__ or                |
+   | Name            | Used for setting a custom `suite name`_.               |
+   +-----------------+--------------------------------------------------------+
+   | Documentation   | Used for specifying a `suite`__ or                     |
    |                 | `resource file`__ documentation.                       |
    +-----------------+--------------------------------------------------------+
-   | Metadata        | Used for setting `free test suite metadata`_.          |
+   | Metadata        | Used for setting `free suite metadata`_.               |
    +-----------------+--------------------------------------------------------+
    | Suite Setup     | Used for specifying the `suite setup`_.                |
    +-----------------+--------------------------------------------------------+
    | Suite Teardown  | Used for specifying the `suite teardown`_.             |
    +-----------------+--------------------------------------------------------+
-   | Force Tags      | Used for specifying forced values for tags when        |
-   |                 | `tagging test cases`_.                                 |
+   | Test  Tags      | Used for specifying `test case tags`_ for all tests    |
+   |                 | in a suite.                                            |
    +-----------------+--------------------------------------------------------+
-   | Default Tags    | Used for specifying default values for tags when       |
-   |                 | `tagging test cases`_.                                 |
+   | Force Tags,     | `Deprecated settings`__ for specifying test case tags. |
+   | Default Tags    |                                                        |
+   +-----------------+--------------------------------------------------------+
+   | Keyword Tags    | Used for specifying `user keyword tags`_ for all       |
+   |                 | keywords in a certain file.                            |
    +-----------------+--------------------------------------------------------+
    | Test Setup      | Used for specifying a default `test setup`_.           |
    +-----------------+--------------------------------------------------------+
@@ -56,23 +66,20 @@ importing libraries, resources, and variables.
    | Task Timeout    |                                                        |
    +-----------------+--------------------------------------------------------+
 
-.. note:: All setting names can optionally include a colon at the end, for
-      example :setting:`Documentation:`. This can make reading the settings easier
-      especially when using the plain text format.
-
-__ `Test suite documentation`_
+__ `Suite documentation`_
 __ `Documenting resource files`_
+__ `Deprecation of Force Tags and Default Tags`_
 
-Test Case table
----------------
+Test Case section
+-----------------
 
-The settings in the Test Case table are always specific to the test
+The settings in the Test Case section are always specific to the test
 case for which they are defined. Some of these settings override the
-default values defined in the Settings table.
+default values defined in the Settings section.
 
-Exactly same settings are available when `creating tasks`_ in the Task table.
+Exactly same settings are available when `creating tasks`_ in the Task section.
 
-.. table:: Settings available in the Test Case table
+.. table:: Settings available in the Test Case section
    :class: tabular
 
    +-----------------+--------------------------------------------------------+
@@ -91,13 +98,13 @@ Exactly same settings are available when `creating tasks`_ in the Task table.
    | [Timeout]       | Used for specifying a `test case timeout`_.            |
    +-----------------+--------------------------------------------------------+
 
-Keyword table
--------------
+Keyword section
+---------------
 
-Settings in the Keyword table are specific to the user keyword for
+Settings in the Keyword section are specific to the user keyword for
 which they are defined.
 
-.. table:: Settings available in the Keyword table
+.. table:: Settings available in the Keyword section
    :class: tabular
 
    +-----------------+--------------------------------------------------------+
@@ -109,9 +116,14 @@ which they are defined.
    +-----------------+--------------------------------------------------------+
    | [Arguments]     | Used for specifying `user keyword arguments`_.         |
    +-----------------+--------------------------------------------------------+
-   | [Return]        | Used for specifying `user keyword return values`_.     |
+   | [Setup]         | Used for specifying a `user keyword setup`_.           |
+   |                 | New in Robot Framework 7.0.                            |
    +-----------------+--------------------------------------------------------+
    | [Teardown]      | Used for specifying `user keyword teardown`_.          |
    +-----------------+--------------------------------------------------------+
    | [Timeout]       | Used for specifying a `user keyword timeout`_.         |
+   +-----------------+--------------------------------------------------------+
+   | [Return]        | Used for specifying `user keyword return values`_.     |
+   |                 | Deprecated in Robot Framework 7.0. Use the RETURN_     |
+   |                 | statement instead.                                     |
    +-----------------+--------------------------------------------------------+

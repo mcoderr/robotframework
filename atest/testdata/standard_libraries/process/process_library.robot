@@ -20,7 +20,7 @@ Start And Wait Process
 
 Change Current Working Directory
     ${result}=    Run Process    python    -c    import os; print(os.path.abspath(os.curdir))    cwd=.
-    ${result2}=    Run Process    python    -c    import os; print(os.path.abspath(os.curdir))    cwd=..
+    ${result2}=    Run Process    python    -c    import os; print(os.path.abspath(os.curdir))    cwd=${{pathlib.Path('..')}}
     Should Not Be Equal    ${result.stdout}    ${result2.stdout}
 
 Running a process in a shell
@@ -34,12 +34,18 @@ Running a process in a shell
     Run Keyword And Expect Error    *    Run Process    python -c "print('hello')"    shell=false
 
 Input things to process
-    Start Process    python -c "print('inp %s' % input())"    shell=True
+    Start Process    python -c "print('inp %s' % input())"    shell=True    stdin=PIPE
     ${process}=    Get Process Object
     Log   ${process.stdin.write(b"42\n")}
     Log   ${process.stdin.flush()}
     ${result}=    Wait For Process
     Should Match    ${result.stdout}    *inp 42*
+
+Assign process object to variable
+    ${process} =    Start Process  python  -c  print('Hello, world!')
+    ${result} =    Run Process  python  -c  import sys; print(sys.stdin.read().upper().strip())  stdin=${process.stdout}
+    Wait For Process    ${process}
+    Should Be Equal As Strings    ${result.stdout}  HELLO, WORLD!
 
 Get process id
     ${handle}=    Some process

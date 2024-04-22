@@ -17,27 +17,20 @@ Sending INT signal as a number
     Killer signal    ${2}
 
 Send other well-known signals
-    :FOR    ${signal}    IN    TERM    SIGTERM    15    KILL    SIGKILL    ${9}
-    \    Killer signal    ${signal}
-
-By default signal is not sent to process running in shell
-    Precondition not OSX
-    Start Countdown    shell=yes
-    Send Signal To Process    TERM
-    Countdown should not have stopped
+    FOR    ${signal}    IN    TERM    SIGTERM    15    KILL    SIGKILL    ${9}
+        Killer signal    ${signal}
+    END
 
 By default signal is sent only to parent process
     Start Countdown    children=3
     Send Signal To Process    SIGTERM
     Countdown should not have stopped
 
-Signal can be sent to process running in shell
-    Check Precondition    not sys.platform.startswith('java')
-    Killer signal    TERM    shell=True    group=yes
-
 Signal can be sent to child processes
-    Check Precondition    not sys.platform.startswith('java')
     Killer signal    TERM    children=3    group=${True}
+
+Signal can be sent to process running in shell
+    Killer signal    TERM    shell=True    group=yes
 
 Sending an unknown signal
     [Documentation]    FAIL Unsupported signal 'unknown'.
@@ -59,7 +52,7 @@ Sending signal to a process with a wrong handle
 *** Keywords ***
 Killer signal
     [Arguments]    ${signal}    ${shell}=False    ${children}=0    ${group}=False
-    Start Countdown    alias=${signal}    shell=${shell}    children=${children}
+    Start Countdown    alias=${{str($signal)}}    shell=${shell}    children=${children}
     Send Signal To Process    ${signal}    group=${group}
     Countdown Should Have Stopped    handle=${signal}
 
@@ -68,4 +61,4 @@ Start Countdown
     ${handle} =    Start Process    python    ${COUNTDOWN}    ${TEMPFILE}
     ...    ${children}    alias=${alias}    shell=${shell}
     Wait Until Countdown Started
-    [Return]    ${handle}
+    RETURN    ${handle}

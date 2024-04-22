@@ -78,9 +78,6 @@ Misspelled Keyword Spacing
 Misspelled Keyword No Whitespace
     Check Test Case    ${TESTNAME}
 
-Keyword With Period
-    Check Test Case    ${TESTNAME}
-
 Keyword With Periods
     Check Test Case    ${TESTNAME}
 
@@ -110,9 +107,6 @@ Substring of Long Keyword
     Check Test Case    ${TESTNAME}
 
 Similar To Really Long Keyword
-    Check Test Case    ${TESTNAME}
-
-Keyword With Arguments Without Correct Spacing
     Check Test Case    ${TESTNAME}
 
 Misspelled Keyword With Arguments
@@ -163,5 +157,8 @@ Explicit Substring Of Many Keywords
 Implicit Substring Of Many Keywords
     Check Test Case    ${TESTNAME}
 
-Excluded Library
+Missing separator between keyword and arguments
+    Check Test Case    ${TESTNAME}
+
+Missing separator between keyword and arguments with multiple matches
     Check Test Case    ${TESTNAME}

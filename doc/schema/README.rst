@@ -1,74 +1,55 @@
-Robot Framework output XML schema
-=================================
+Robot Framework and Libdoc schema definitions
+=============================================
 
-Introduction
+This directory contains schema definitions for various Robot Framework and
+Libdoc_ output files.
+
+Only the latest schema versions are directly available and they may not be
+compatible with older Robot Framework versions. If you need to access old
+schema files, switch to an appropriate version control tag using the selector
+at the top of the page.
+
+Schema files
 ------------
 
-While Robot Framework is running tests, it generates an XML output file
-containing all information about the execution. After execution is over it
-creates, by default, log and report files using
-`rebot tool <http://robotframework.org/robotframework/latest/RobotFrameworkUserGuide.html#rebot>`_
-internally. The same ``rebot`` functionality can also be used externally
-afterwards both as a standalone tool and
-`programmatically <http://robot-framework.readthedocs.org/en/latest/autodoc/robot.html#robot.rebot.rebot>`_.
+- `<robot.xsd>`_ - Robot Framework XML output schema in XSD_ format.
+- `<running.json>`_ - `JSON Schema`_ for ``robot.running.TestSuite`` model structure.
+- `<result.json>`_ - `JSON Schema`_ for ``robot.result.TestSuite`` model structure.
+- `<libdoc.xsd>`_ - Libdoc XML spec schema in XSD_ format.
+- `<libdoc.json>`_ - Libdoc JSON spec schema in `JSON Schema`_ format.
 
-This document describes the format of the output file in high level and in the
-same folder there are detailed
-`XML schema definition <http://en.wikipedia.org/wiki/XML_Schema_(W3C)>`_ (XSD)
-files that can be used for validating that an XML file is Robot Framework
-compatible. The output file format can be useful both for people interested in
-parsing the output and for people interested to create Robot Framework
-compatible outputs.
+Schema standard versions
+------------------------
 
-General structure
------------------
+XML schema definitions use XSD 1.0 due to XSD 1.1 not being widely adopted.
+Schema files themselves contain embedded documentation and comments explaining
+the structure in more detail. They also contain instructions how to make them
+XSD 1.1 compatible if needed.
 
-These are the main elements of the XML output with descriptions of their
-sub-elements. Unless stated otherwise, all attributes are optional. Additionally
-``rebot`` does not care of the order of the XML elements, except for the order
-of suite, test, and kw elements. Starting from Robot Framework 2.9, empty
-elements and attributes are not written to the output XML. This means that,
-for example, test case having no documentation has no ``<doc>`` element either.
+JSON schemas use JSON Schema Draft 2020-12.
 
-robot - root element
-    * ``suite`` - root element always has one suite which contains the subsuites and tests
-    * ``statistics`` - statistics contains statistics of the test run
-    * ``errors`` - if there were any errors, they are listed in this element
+Updating schemas
+----------------
 
-suite - suite element, name is given as an attribute
-    * ``kw`` - suite can have two kw elements: setup and teardown, both are optional
-    * ``suite`` - any number of sub suites in execution order
-    * ``test`` - any number of tests in execution order
-    * ``doc`` - optional documentation element
-    * ``metadata`` - optional suite metadata
-    * ``status`` - suite has to have a status element
+XSD schemas are created by hand and updates need to be done directly to them.
 
-test - test element, name is given as an attribute
-    * ``kw`` - keywords of the test in execution order
-    * ``msg`` - optional test message
-    * ``doc`` - optional test documentation
-    * ``tags`` - optional test tags
-    * ``timeout`` - optional test timeout. Before 3.0 this was an attribute.
-    * ``status`` - test has to have a status
+JSON schemas are generated based on models created using pydantic_.
+To modify these schemas, first update the appropriate pydantic model either
+in `<running_json_schema.py>`_, `<result_json_schema.py>`_, or `<libdoc_json_schema.py>`_
+and then execute that file to regenerate the actual schema file in
+`<running.json>`_, `<result.json>`_, or `<libdoc.json>`_, respectively.
 
-kw - keyword element, name is given as an attribute. Type attribute describes the type of keyword. If this attribute is not present, type is assumed to be ``kw``.
-    * ``tags`` - optional keyword tags (new in 2.9)
-    * ``doc`` - optional keyword documentation
-    * ``arguments`` - optional keyword arguments
-    * ``assignment`` - possible assignment of keyword's return values to variables, each variable in ``var`` subelement (new in 2.9)
-    * ``kw`` - possible sub-keywords in execution order
-    * ``msg`` - any number of optional keyword messages
-    * ``timeout`` - optional keyword timeout. Before 3.0 this was an attribute.
-    * ``status`` - keyword has to have a status
+Testing schemas
+---------------
 
-For more details and full list of elements and attributes, please see the XML schema files below.
+Schema definitions are tested as part of `acceptance test runs <../../atest/README.rst>`__
+by validating created outputs against the appropriate schemas. Most output.xml
+files created during test runs are not validated, however, because that would
+slow down test execution a bit too much. Full validation `can be enabled separately`__
+and that should be done if the schema is updated or output.xml structure is changed.
 
-XML schema definition
----------------------
-
-Available schema files:
-
-  * `<robot-xsd10.xsd>`__ - XSD 1.0 compatible version
-  * `<robot-xsd11.xsd>`__ - XSD 1.1 compatible version
-
-The latter schema file is more complete, but XSD 1.1 is not as widely supported as the 1.0 version.
+.. _Libdoc: http://robotframework.org/robotframework/latest/RobotFrameworkUserGuide.html#libdoc
+.. _XSD: http://en.wikipedia.org/wiki/XML_Schema_(W3C)
+.. _JSON Schema: https://json-schema.org
+.. _pydantic: https://pydantic-docs.helpmanual.io/usage/schema
+__ https://github.com/robotframework/robotframework/blob/master/atest/README.rst#schema-validation

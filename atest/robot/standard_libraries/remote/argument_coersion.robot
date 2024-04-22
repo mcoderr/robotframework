@@ -19,7 +19,6 @@ Binary with too big Unicode characters
     Check Test Case    ${TESTNAME}
 
 Unrepresentable Unicode
-    [Tags]    no-ipy
     Check Test Case    ${TESTNAME}
 
 Integer
@@ -32,6 +31,15 @@ Boolean
     Check Test Case    ${TESTNAME}
 
 None
+    Check Test Case    ${TESTNAME}
+
+Datetime
+    Check Test Case    ${TESTNAME}
+
+Date
+    Check Test Case    ${TESTNAME}
+
+Timedelta
     Check Test Case    ${TESTNAME}
 
 Custom object
@@ -71,16 +79,7 @@ Dictionary with non-string keys and values
     Check Test Case    ${TESTNAME}
 
 Dictionary with non-ASCII keys
-    [Tags]    no-ipy
     Check Test Case    ${TESTNAME}
-
-Dictionary with non-ASCII keys does not work with IronPython
-    [Tags]    require-ipy
-    ${message} =    Catenate    SEPARATOR=\n\n
-    ...    Several failures occurred:
-    ...    1) ValueError: Dictionary keys cannot contain non-ASCII characters on IronPython. Got u'\\xe4'.
-    ...    2) ValueError: Dictionary keys cannot contain non-ASCII characters on IronPython. Got u'\\u2603'.
-    Check Test Case    Dictionary with non-ASCII keys    FAIL    ${message}
 
 Dictionary with non-ASCII values
     Check Test Case    ${TESTNAME}

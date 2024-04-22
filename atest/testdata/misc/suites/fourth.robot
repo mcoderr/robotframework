@@ -1,15 +1,19 @@
-*** Setting ***
+*** Settings ***
 Documentation     Normal test cases
-Suite Teardown    Log    Suite Teardonw of Fourth
-Force Tags        f1
-Default Tags      d1    d2
+Suite Setup       Log    ${SETUP MSG}
+Suite Teardown    Log    ${TEARDOWN MSG}
+Test Tags         f1
 Metadata          Something    My Value
 
-*** Test Case ***
+*** Variables ***
+${SETUP MSG}     Suite Setup of Fourth
+${TEARDOWN MSG}  Suite Teardown of Fourth
+
+*** Test Cases ***
 Suite4 First
     [Documentation]    FAIL Expected
     [Tags]    t1
     Log    Suite4_First
-    Sleep    0.01    Make sure elapsed time > 0
+    Sleep    0.001    Make sure elapsed time > 0
     Fail    Expected
     [Teardown]    Log    Huhuu

@@ -6,10 +6,6 @@ Resource        atest_resource.robot
 Environment Variables In Keyword Argument
     Check Test Case  ${TESTNAME}
 
-Java System Properties Can Be Used
-    [Tags]  require-jython
-    Check Test Case  ${TESTNAME}
-
 Non-ASCII Environment Variable
     Check Test Case  ${TESTNAME}
 
@@ -23,8 +19,11 @@ Non-Existing Environment Variable
     Check Test Case  ${TESTNAME}
 
 Environment Variables Are Case Sensitive Except On Windows
-    Run Keyword If  '${:}' == ':'  Check Test Case  Environment Variables Are Case Sensitive
-    Run Keyword Unless  '${:}' == ':'  Check Test Case  Environment Variables Are Not Case Sensitive On Windows
+    IF    '${:}' == ':'
+        Check Test Case    Environment Variables Are Case Sensitive
+    ELSE
+        Check Test Case    Environment Variables Are Not Case Sensitive On Windows
+    END
 
 Environment Variables Are Space Sensitive
     Check Test Case  ${TEST_NAME} 1
@@ -55,4 +54,16 @@ Escaping Environment Variables
     Check Test Case  ${TESTNAME}
 
 Empty Environment Variable
+    Check Test Case  ${TESTNAME}
+
+Environment Variable with Default Value
+    Check Test Case  ${TESTNAME}
+
+Environment Variable with Variable as Default Value
+    Check Test Case  ${TESTNAME}
+
+Environment Variable with Empty Default Value
+    Check Test Case  ${TESTNAME}
+
+Environment Variable with Equal Sign in Default Value
     Check Test Case  ${TESTNAME}

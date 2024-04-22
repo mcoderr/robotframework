@@ -29,21 +29,21 @@ Full Name Works With Non-Unique Keyword Names
     mywithname.keywordeverywhere
 
 Non-Unique Keywords Without Full Name Fails 1
-    [Documentation]    FAIL Multiple keywords with name 'Keyword In Both Resources' found.\
-    ...    Give the full name of the keyword you want to use:
+    [Documentation]    FAIL
+    ...    Multiple keywords with name 'Keyword In Both Resources' found. Give the full name of the keyword you want to use:
     ...    ${SPACE*4}my_resource_1.Keyword In Both Resources
     ...    ${SPACE*4}my_resource_2.Keyword In Both Resources
     Keyword In Both Resources
 
 Non-Unique Keywords Without Full Name Fails 2
-    [Documentation]    FAIL Multiple keywords with name 'Keyword In Both Libraries' found.\
+    [Documentation]    FAIL Multiple keywords with name 'Keyword In Both Libraries' found. \
     ...    Give the full name of the keyword you want to use:
     ...    ${SPACE*4}My With Name.Keyword In Both Libraries
     ...    ${SPACE*4}MyLibrary1.Keyword In Both Libraries
     Keyword In Both Libraries
 
 Non-Unique Keywords Without Full Name Fails 3
-    [Documentation]    FAIL Multiple keywords with name 'Keyword In All Resources And Libraries' found.\
+    [Documentation]    FAIL Multiple keywords with name 'Keyword In All Resources And Libraries' found. \
     ...    Give the full name of the keyword you want to use:
     ...    ${SPACE*4}my_resource_1.Keyword In All Resources And Libraries
     ...    ${SPACE*4}my_resource_2.Keyword In All Resources And Libraries
@@ -56,9 +56,34 @@ Keyword From Test Case File Overrides Keywords From Resources And Libraries
 Keyword From Resource Overrides Keywords From Libraries
     Keyword In Resource Overrides Libraries
 
+Keyword From Test Case File Overriding Local Keyword In Resource File Is Deprecated
+    Use test case file keyword even when local keyword with same name exists
+
+Local keyword in resource file has precedence over keywords in other resource files
+    Use local keyword that exists also in another resource 1
+    Use local keyword that exists also in another resource 2
+
+Search order has precedence over local keyword in resource file
+    [Setup]    Set library search order    my_resource_1
+    Use local keyword that exists also in another resource 1
+    Use local keyword that exists also in another resource 2
+    [Teardown]    Set library search order
+
 Keyword From Custom Library Overrides Keywords From Standard Library
     Comment
     Copy Directory
+
+Search order can give presedence to standard library keyword over custom keyword
+    Set Library Search Order    BuiltIn
+    Comment    Used from BuiltIn
+    Copy Directory
+    [Teardown]    Set Library Search Order
+
+Search order can give presedence to custom keyword over standard library keyword
+    Set Library Search Order    MyLibrary1
+    Comment
+    Copy Directory
+    [Teardown]    Set Library Search Order
 
 Keyword From Custom Library Overrides Keywords From Standard Library Even When Std Lib Imported With Different Name
     ${ret} =    Replace String
@@ -72,8 +97,8 @@ No Warning When Custom Library Keyword Is Registered As RunKeyword Variant And I
     Run Keyword If    ${TRUE}    Log    Hello
 
 Keyword In More Than One Custom Library And Standard Library
-    [Documentation]    FAIL Multiple keywords with name 'No Operation' found.\
-    ...    Give the full name of the keyword you want to use:
+    [Documentation]    FAIL
+    ...    Multiple keywords with name 'No Operation' found. Give the full name of the keyword you want to use:
     ...    ${SPACE*4}BuiltIn.No Operation
     ...    ${SPACE*4}My With Name.No Operation
     ...    ${SPACE*4}MyLibrary1.No Operation

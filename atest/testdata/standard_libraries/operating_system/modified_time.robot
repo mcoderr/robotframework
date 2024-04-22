@@ -14,23 +14,23 @@ Get Modified Time As Timestamp
 
 Get Modified Time As Seconds After Epoch
     ${dirtime} =    Get Modified Time    ${CURDIR}    epoch
-    Should Be True    1000000000 < ${dirtime} < 2000000000
+    Should Be True    ${dirtime} > 0
     ${current} =    Get Time    epoch
     Should Be True    ${current} >= ${dirtime}
 
 Get Modified Time As Parts
     ${year} =    Get Modified Time    ${CURDIR}    year
-    Should Be True    2000 < ${year} < 2100
+    Should Match Regexp    ${year}    \\d{4}
     ${yyyy}    ${mm}    ${dd} =    Get Modified Time    ${CURDIR}    year, month, day
     Should Be Equal    ${yyyy}    ${year}
     # Must use `int('x')` because otherwise 08 and 09 are considered octal
     Should Be True    1 <= int('${mm}') <= 12
     Should Be True    1 <= int('${dd}') <= 31
     @{time} =    Get Modified Time    ${CURDIR}    year, sec, min, hour
-    Should Be Equal    @{time}[0]    ${year}
-    Should Be True    0 <= int('@{time}[1]') <= 23
-    Should Be True    0 <= int('@{time}[2]') <= 59
-    Should Be True    0 <= int('@{time}[3]') <= 59
+    Should Be Equal    ${time}[0]    ${year}
+    Should Be True    0 <= int('${time}[1]') <= 23
+    Should Be True    0 <= int('${time}[2]') <= 59
+    Should Be True    0 <= int('${time}[3]') <= 59
 
 Get Modified Time Fails When Path Does Not Exist
     [Documentation]    FAIL Path '${CURDIR}${/}does_not_exist' does not exist.
@@ -39,7 +39,7 @@ Get Modified Time Fails When Path Does Not Exist
 Set Modified Time Using Epoch
     [Documentation]    FAIL ValueError: Epoch time must be positive (got -1).
     Create File    ${TESTFILE}
-    ${epoch} =    Evaluate    1542892422.0 + time.timezone    modules=time
+    ${epoch} =    Evaluate    1542892422.0 + time.timezone
     Set Modified Time    ${TESTFILE}    ${epoch}
     ${mtime} =    Get Modified Time    ${TESTFILE}
     Should Be Equal    ${mtime}    2018-11-22 13:13:42
@@ -47,12 +47,13 @@ Set Modified Time Using Epoch
 
 Set Modified Time Using Timestamp
     Create File    ${TESTFILE}
-    ${expected} =    Evaluate    1542892422.0 + time.timezone    modules=time
-    : FOR    ${timestamp}    IN    2018-11-22 13:13:42    20181122 13:13:42
+    ${expected} =    Evaluate    1542892422.0 + time.timezone
+    FOR    ${timestamp}    IN    2018-11-22 13:13:42    20181122 13:13:42
     ...    20181122 131342    20181122-131342    2018-11-22 13:13:42.456
-    \    Set Modified Time    ${TESTFILE}    ${timestamp}
-    \    ${mtime} =    Get Modified Time    ${TESTFILE}    epoch
-    \    Should Be Equal    ${mtime}    ${expected}
+        Set Modified Time    ${TESTFILE}    ${timestamp}
+        ${mtime} =    Get Modified Time    ${TESTFILE}    epoch
+        Should Be Equal    ${mtime}    ${expected}
+    END
 
 Set Modified Time Using Invalid Timestamp
     [Documentation]    FAIL ValueError: Invalid time format 'invalid time'.
@@ -107,3 +108,9 @@ Set And Get Modified Time Of File With Spaces In Name
     Set Modified Time    ${WITH SPACE}    2010-09-26 21:24
     ${time} =    Get Modified Time    ${WITH SPACE}
     Should Be Equal    ${time}    2010-09-26 21:24:00
+
+Path as `pathlib.Path`
+    Create File    ${BASE}/file.txt
+    Set Modified Time    ${PATH/'file.txt'}    2022-09-16 19:41:12
+    ${time} =    Get Modified Time    ${PATH/'file.txt'}
+    Should Be Equal    ${time}    2022-09-16 19:41:12

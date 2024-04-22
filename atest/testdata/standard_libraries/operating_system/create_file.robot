@@ -41,19 +41,23 @@ Create File With System Encoding
     Verify File    ${TESTFILE}    Nön-ÄSCÏÏ Cöntënt    encoding=${SYSTEM_ENCODING}
 
 Create File With Console Encoding
-    Create File    ${TESTFILE}    Nön-ÄSCÏÏ Cöntënt    encoding=CONSole
-    Verify File    ${TESTFILE}    Nön-ÄSCÏÏ Cöntënt    encoding=${CONSOLE_ENCODING}
+    # Avoid content that the console encoding cannot handle by encoding
+    # to bytes with an error handler and then decoding back to string.
+    ${content} =    Encode string to bytes    Nön-ÄSCÏÏ Cöntënt    ${CONSOLE_ENCODING}    errors=ignore
+    ${content} =    Decode bytes to string    ${content}    ${CONSOLE_ENCODING}
+    Create File    ${TESTFILE}    ${content}    encoding=CONSole
+    Verify File    ${TESTFILE}    ${content}    encoding=${CONSOLE_ENCODING}
 
 Create File With Non-ASCII Name
     [Template]    Create and Verify File
-    ASCII content    file=${NON ASCII}
-    Спасибо          file=${NON ASCII}
+    ASCII content    path=${NON ASCII}
+    Спасибо          path=${NON ASCII}
 
 Create File With Space In Name
-    Create And Verify File    file=${WITH SPACE}
+    Create And Verify File    path=${WITH SPACE}
 
 Create File To Non-Existing Directory
-    Create And Verify File    file=${TESTDIR}${/}file.txt
+    Create And Verify File    path=${TESTDIR}${/}file.txt
 
 Creating File Fails If Encoding Is Incorrect
     [Documentation]    FAIL REGEXP: Unicode(Encode|)Error: .*
@@ -91,25 +95,30 @@ Append To File
     Append To File    ${TESTFILE}    Lääst läin\n\n    UTF-8
     Verify File       ${TESTFILE}    First line${\n}Second line${\n}3${\n}${\n}${\n}Lääst läin${\n}${\n}
 
+Path as `pathlib.Path`
+    Create And Verify File    path=${PATH/'file.txt'}
+    Append To File    ${PATH/'file.txt'}    xxx
+    Create And Verify Binary File Using Bytes    path=${PATH/'file.txt'}
+
 *** Keywords ***
 Create And Verify File
-    [Arguments]    ${content}=content    ${encoding}=UTF-8    ${file}=${TESTFILE}    ${expected}=${content}
-    Create File    ${file}    ${content}    ${encoding}
-    Verify File    ${file}    ${expected}    ${encoding}
+    [Arguments]    ${content}=content    ${encoding}=UTF-8    ${path}=${TESTFILE}    ${expected}=${content}
+    Create File    ${path}    ${content}    ${encoding}
+    Verify File    ${path}    ${expected}    ${encoding}
 
 Create And Verify Binary File Using Bytes
-    [Arguments]    ${content}    ${file}=${TESTFILE}
+    [Arguments]    ${content}=content    ${path}=${TESTFILE}
     ${content} =    Convert To Bytes    ${content}
-    Create Binary File    ${file}    ${content}
-    Verify Binary File    ${file}    ${content}
+    Create Binary File    ${path}    ${content}
+    Verify Binary File    ${path}    ${content}
 
 Create And Verify Binary File Using Unicode
-    [Arguments]    ${content}    ${file}=${TESTFILE}
-    Create Binary File    ${file}    ${content}
+    [Arguments]    ${content}    ${path}=${TESTFILE}
+    Create Binary File    ${path}    ${content}
     ${expected} =    Convert To Bytes    ${content}
-    Verify Binary File    ${file}    ${expected}
+    Verify Binary File    ${path}    ${expected}
 
 Verify Binary File
-    [Arguments]    ${file}    ${expected}
-    ${content} =    Get Binary File    ${file}
+    [Arguments]    ${path}    ${expected}
+    ${content} =    Get Binary File    ${path}
     Should Be Equal    ${content}    ${expected}

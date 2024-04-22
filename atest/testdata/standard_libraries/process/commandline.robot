@@ -27,8 +27,9 @@ ${BASICS}        10
 *** Test Cases ***
 Split command line basics
     [Template]    Split command line should succeed
-    :FOR    ${i}    IN RANGE    ${BASICS}
-    \    ${C${i}}    @{L${i}}
+    FOR    ${i}    IN RANGE    ${BASICS}
+        ${C${i}}    @{L${i}}
+    END
     "justone"    justone
 
 Split command line with internal quotes
@@ -63,10 +64,15 @@ Split command line with escaping
     \\\\\\"\\\\                       \\"\\                        escaping=True
     "\\\\\\"\\\\"                     \\"\\                        escaping=True
 
+Split command line with pathlib.Path
+    [Template]    Split command line should succeed
+    ${{pathlib.Path($TEMPDIR)}}    ${TEMPDIR}
+
 Join command line basics
     [Template]    Join command line should succeed
-    :FOR    ${i}    IN RANGE    ${BASICS}
-    \    ${C${i}.replace("'", '"')}    @{L${i}}
+    FOR    ${i}    IN RANGE    ${BASICS}
+        ${C${i}.replace("'", '"')}    @{L${i}}
+    END
 
 Join command line with internal quotes
     [Template]    Join command line should succeed
@@ -80,6 +86,11 @@ Join command line with escaping
     \\\\\\"                           \\"
     \\\\\\\\\\"                       \\\\"
 
+Join command line with non-strings
+    [Template]    Join command line should succeed
+    ${TEMPDIR}          ${{pathlib.Path($TEMPDIR)}}
+    -n 42 ${TEMPDIR}    -n    ${42}    ${{pathlib.Path($TEMPDIR)}}
+
 *** Keywords ***
 Split command line should succeed
     [Arguments]    ${input}    @{expected}    &{config}
@@ -88,7 +99,8 @@ Split command line should succeed
 
 Split command line should fail
     [Arguments]    ${input}    ${error}=No closing quotation
-    Run keyword and expect error    ValueError: Parsing '${input}' failed: ${error}
+    Run keyword and expect error
+    ...    ValueError: Parsing '${input}' failed: ${error}
     ...    Split command line    ${input}
 
 Join command line should succeed

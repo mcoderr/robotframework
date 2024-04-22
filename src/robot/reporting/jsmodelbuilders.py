@@ -13,17 +13,26 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import re
+
 from robot.output import LEVELS
+from robot.result import Error, Keyword, Message, Return
 
 from .jsbuildingcontext import JsBuildingContext
 from .jsexecutionresult import JsExecutionResult
 
+STATUSES = {'FAIL': 0, 'PASS': 1, 'SKIP': 2, 'NOT RUN': 3}
+KEYWORD_TYPES = {'KEYWORD': 0, 'SETUP': 1, 'TEARDOWN': 2,
+                 'FOR': 3, 'ITERATION': 4, 'IF': 5, 'ELSE IF': 6, 'ELSE': 7,
+                 'RETURN': 8, 'VAR': 9, 'TRY': 10, 'EXCEPT': 11, 'FINALLY': 12,
+                 'WHILE': 13, 'CONTINUE': 14, 'BREAK': 15, 'ERROR': 16}
 
-class JsModelBuilder(object):
 
-    def __init__(self, log_path=None, split_log=False,
+class JsModelBuilder:
+
+    def __init__(self, log_path=None, split_log=False, expand_keywords=None,
                  prune_input_to_save_memory=False):
-        self._context = JsBuildingContext(log_path, split_log,
+        self._context = JsBuildingContext(log_path, split_log, expand_keywords,
                                           prune_input_to_save_memory)
 
     def build_from(self, result_from_xml):
@@ -35,49 +44,66 @@ class JsModelBuilder(object):
             strings=self._context.strings,
             basemillis=self._context.basemillis,
             split_results=self._context.split_results,
-            min_level=self._context.min_level
+            min_level=self._context.min_level,
+            expand_keywords=self._context.expand_keywords
         )
 
 
-class _Builder(object):
-    _statuses = {'FAIL': 0, 'PASS': 1, 'NOT_RUN': 2}
+class Builder:
+    robot_note = re.compile('<span class="robot-note">(.*)</span>')
 
-    def __init__(self, context):
+    def __init__(self, context: JsBuildingContext):
         self._context = context
         self._string = self._context.string
         self._html = self._context.html
         self._timestamp = self._context.timestamp
 
-    def _get_status(self, item):
-        model = (self._statuses[item.status],
-                 self._timestamp(item.starttime),
-                 item.elapsedtime)
-        msg = getattr(item, 'message', '')
+    def _get_status(self, item, note_only=False):
+        model = (STATUSES[item.status],
+                 self._timestamp(item.start_time),
+                 round(item.elapsed_time.total_seconds() * 1000))
+        msg = item.message
         if not msg:
             return model
-        elif msg.startswith('*HTML*'):
-            msg = self._string(msg[6:].lstrip(), escape=False)
+        if note_only:
+            if msg.startswith('*HTML*'):
+                match = self.robot_note.search(msg)
+                if match:
+                    index = self._string(match.group(1))
+                    return model + (index,)
+            return model
+        if msg.startswith('*HTML*'):
+            index = self._string(msg[6:].lstrip(), escape=False)
         else:
-            msg = self._string(msg)
-        return model + (msg,)
+            index = self._string(msg)
+        return model + (index,)
 
-    def _build_keywords(self, kws, split=False):
+    def _build_body(self, body, split=False):
         splitting = self._context.start_splitting_if_needed(split)
-        model = tuple(self._build_keyword(k) for k in kws)
+        # tuple([<listcomp>]) is faster than tuple(<genex>) with short lists.
+        model = tuple([self._build_body_item(item) for item in body])
         return model if not splitting else self._context.end_splitting(model)
 
+    def _build_body_item(self, item):
+        raise NotImplementedError
 
-class SuiteBuilder(_Builder):
+
+class SuiteBuilder(Builder):
 
     def __init__(self, context):
-        _Builder.__init__(self, context)
+        super().__init__(context)
         self._build_suite = self.build
         self._build_test = TestBuilder(context).build
-        self._build_keyword = KeywordBuilder(context).build
+        self._build_body_item = BodyItemBuilder(context).build
 
     def build(self, suite):
-        with self._context.prune_input(suite.suites, suite.tests, suite.keywords):
+        with self._context.prune_input(suite.tests, suite.suites):
             stats = self._get_statistics(suite)  # Must be done before pruning
+            fixture = []
+            if suite.has_setup:
+                fixture.append(suite.setup)
+            if suite.has_teardown:
+                fixture.append(suite.teardown)
             return (self._string(suite.name, attr=True),
                     self._string(suite.source),
                     self._context.relative_source(suite.source),
@@ -86,7 +112,7 @@ class SuiteBuilder(_Builder):
                     self._get_status(suite),
                     tuple(self._build_suite(s) for s in suite.suites),
                     tuple(self._build_test(t) for t in suite.tests),
-                    tuple(self._build_keyword(k, split=True) for k in suite.keywords),
+                    tuple(self._build_body_item(kw, split=True) for kw in fixture),
                     stats)
 
     def _yield_metadata(self, suite):
@@ -96,56 +122,82 @@ class SuiteBuilder(_Builder):
 
     def _get_statistics(self, suite):
         stats = suite.statistics  # Access property only once
-        return (stats.all.total,
-                stats.all.passed,
-                stats.critical.total,
-                stats.critical.passed)
+        return (stats.total, stats.passed, stats.failed, stats.skipped)
 
 
-class TestBuilder(_Builder):
+class TestBuilder(Builder):
 
     def __init__(self, context):
-        _Builder.__init__(self, context)
-        self._build_keyword = KeywordBuilder(context).build
+        super().__init__(context)
+        self._build_body_item = BodyItemBuilder(context).build
 
     def build(self, test):
-        with self._context.prune_input(test.keywords):
+        body = self._get_body_items(test)
+        with self._context.prune_input(test.body):
             return (self._string(test.name, attr=True),
                     self._string(test.timeout),
-                    int(test.critical),
                     self._html(test.doc),
                     tuple(self._string(t) for t in test.tags),
                     self._get_status(test),
-                    self._build_keywords(test.keywords, split=True))
+                    self._build_body(body, split=True))
+
+    def _get_body_items(self, test):
+        body = test.body.flatten()
+        if test.has_setup:
+            body.insert(0, test.setup)
+        if test.has_teardown:
+            body.append(test.teardown)
+        return body
 
 
-class KeywordBuilder(_Builder):
-    _types = {'kw': 0, 'setup': 1, 'teardown': 2, 'for': 3, 'foritem': 4}
+class BodyItemBuilder(Builder):
 
     def __init__(self, context):
-        _Builder.__init__(self, context)
-        self._build_keyword = self.build
+        super().__init__(context)
+        self._build_body_item = self.build
         self._build_message = MessageBuilder(context).build
 
-    def build(self, kw, split=False):
-        with self._context.prune_input(kw.messages, kw.keywords):
-            return (self._types[kw.type],
-                    self._string(kw.kwname, attr=True),
-                    self._string(kw.libname, attr=True),
-                    self._string(kw.timeout),
-                    self._html(kw.doc),
-                    self._string(', '.join(kw.args)),
-                    self._string(', '.join(kw.assign)),
-                    self._string(', '.join(kw.tags)),
-                    self._get_status(kw),
-                    self._build_keywords(kw.keywords, split),
-                    tuple(self._build_message(m) for m in kw.messages))
+    def build(self, item, split=False):
+        if isinstance(item, Message):
+            return self._build_message(item)
+        with self._context.prune_input(item.body):
+            if isinstance (item, Keyword):
+                return self._build_keyword(item, split)
+            if isinstance(item, (Return, Error)):
+                return self._build(item, args='    '.join(item.values), split=split)
+            return self._build(item, item._log_name, split=split)
+
+    def _build_keyword(self, kw: Keyword, split):
+        self._context.check_expansion(kw)
+        body = kw.body.flatten()
+        if kw.has_setup:
+            body.insert(0, kw.setup)
+        if kw.has_teardown:
+            body.append(kw.teardown)
+        return self._build(kw, kw.name, kw.owner, kw.timeout, kw.doc,
+                           '    '.join(kw.args), '    '.join(kw.assign),
+                           ', '.join(kw.tags), body, split=split)
+
+    def _build(self, item, name='', owner='', timeout='', doc='', args='', assign='',
+               tags='', body=None, split=False):
+        if body is None:
+            body = item.body.flatten()
+        return (KEYWORD_TYPES[item.type],
+                self._string(name, attr=True),
+                self._string(owner, attr=True),
+                self._string(timeout),
+                self._html(doc),
+                self._string(args),
+                self._string(assign),
+                self._string(tags),
+                self._get_status(item, note_only=True),
+                self._build_body(body, split))
 
 
-class MessageBuilder(_Builder):
+class MessageBuilder(Builder):
 
     def build(self, msg):
-        if msg.level in ('WARN','ERROR'):
+        if msg.level in ('WARN', 'ERROR'):
             self._context.create_link_target(msg)
         self._context.message_level(msg.level)
         return self._build(msg)
@@ -156,7 +208,7 @@ class MessageBuilder(_Builder):
                 self._string(msg.html_message, escape=False))
 
 
-class StatisticsBuilder(object):
+class StatisticsBuilder:
 
     def build(self, statistics):
         return (self._build_stats(statistics.total),
@@ -171,10 +223,10 @@ class StatisticsBuilder(object):
                      for stat in stats)
 
 
-class ErrorsBuilder(_Builder):
+class ErrorsBuilder(Builder):
 
     def __init__(self, context):
-        _Builder.__init__(self, context)
+        super().__init__(context)
         self._build_message = ErrorMessageBuilder(context).build
 
     def build(self, errors):

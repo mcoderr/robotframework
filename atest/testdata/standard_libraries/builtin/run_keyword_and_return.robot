@@ -43,7 +43,7 @@ Using Run Keyword variants
     [Teardown]    Using Run Keywords
 
 Outside user keyword
-    [Documentation]    FAIL Invalid 'Return From Keyword' usage.
+    [Documentation]    FAIL Invalid 'RETURN' usage.
     Run Keyword And Return    Log    This does not work
     Fail    This is not executed
 
@@ -74,7 +74,7 @@ Run Keyword And Return If can have non-existing keywords and variables if condit
     Run Keyword And Return If With Non-Existing Keyword And Variables
 
 Run Keyword And Return If with list variable containing escaped items
-    [Documentation]    FAIL STARTS: Evaluating expression 'c:\\temp' failed:
+    [Documentation]    FAIL STARTS: Evaluating expression 'c:\\\\temp' failed:
     ${ret} =    Run Keyword And Return If With Variables    True   Create List    @{ESCAPING}
     Should Be Equal    ${ret}    ${ESCAPING}
     Run Keyword And Return If With Variables    @{ESCAPING}
@@ -183,8 +183,9 @@ Run Keyword And Return Given Args If
 
 Run Keyword And Return If Arg Is Positive
     [Arguments]    @{args}
-    :FOR    ${arg}    IN    @{args}
-    \    Run Keyword And Return If    ${arg} > 0    Set Variable    ${arg} > 0
+    FOR    ${arg}    IN    @{args}
+        Run Keyword And Return If    ${arg} > 0    Set Variable    ${arg} > 0
+    END
     Run Keyword And Return If    True    Set Variable    No positive arguments
     Fail    Not executed
     [Return]    Not returned

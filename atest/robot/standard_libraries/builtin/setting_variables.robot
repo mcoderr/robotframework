@@ -1,15 +1,41 @@
-*** Setting ***
+*** Settings ***
 Documentation     Tests for set variable and set test/suite/global variable keywords
-Suite Setup       Run Tests    --variable cli_var_1:CLI1 --variable cli_var_2:CLI2 --variable cli_var_3:CLI3
-...    standard_libraries/builtin/setting_variables
+Suite Setup       Run Tests
+...               --variable cli_var_1:CLI1 --variable cli_var_2:CLI2 --variable cli_var_3:CLI3
+...               standard_libraries/builtin/setting_variables
 Resource          atest_resource.robot
 
-*** Test Case ***
+*** Test Cases ***
 Set Variable
     ${tc} =    Check Test Case    ${TESTNAME}
     Check Log Message    ${tc.kws[0].msgs[0]}    \${var} = Hello
 
 Set Variable With More Or Less Than One Value
+    Check Test Case    ${TESTNAME}
+
+Set Local Variable - Scalars
+    ${tc} =    Check Test Case    ${TESTNAME}
+    Check Log Message    ${tc.kws[1].msgs[0]}    \${scalar} = Hello world
+
+Set Local Variable - Lists
+    ${tc} =    Check Test Case    ${TESTNAME}
+    Check Log Message    ${tc.kws[3].msgs[0]}    \@{list} = [ One | Two | Three ]
+    Check Log Message    ${tc.kws[6].msgs[0]}    \@{list} = [ 1 | 2 | 3 ]
+
+Set Local Variable - Dicts
+    ${tc} =    Check Test Case    ${TESTNAME}
+    Check Log Message    ${tc.kws[4].msgs[0]}    \&{DICT} = { a=1 | 2=b }
+
+Set Local Variables Overrides Test Variables
+    Check Test Case    ${TESTNAME}
+
+Set Local Variable In Keyword Not Available In Test
+    Check Test Case    ${TESTNAME}
+
+Set Local Variable In Keyword Not Available In Another Keyword
+    Check Test Case    ${TESTNAME}
+
+Setting Local Variable In Test Not Available In Keyword
     Check Test Case    ${TESTNAME}
 
 Set Test Variable - Scalars
@@ -39,6 +65,9 @@ Set Test Variable Not Affecting Other Tests
     Check Test Case    ${TESTNAME}
 
 Test Variables Set In One Suite Are Not Available In Another
+    Check Test Case    ${TESTNAME}
+
+Set Test Variable cannot be used in suite setup or teardown
     Check Test Case    ${TESTNAME}
 
 Set Task Variable as alias for Set Test Variable
@@ -118,7 +147,7 @@ Mutating dict variable set using `Set Test/Suite/Global Variable` keywords
     Check Test Case    ${TEST NAME} 2
     Check Test Case    ${TEST NAME} 3
 
-Using @{EMPTY} with `Set Test/Suite/Global Variable` keywords
+Using \@{EMPTY} with `Set Test/Suite/Global Variable` keywords
     Check Test Case    ${TEST NAME}
     Check Test Case    ${TEST NAME} 2
 
@@ -145,7 +174,7 @@ Setting scalar global variable with list value is not possible
     Check Test Case    ${TEST NAME} 1
     Check Test Case    ${TEST NAME} 2
 
-*** Keyword ***
+*** Keywords ***
 Check Suite Teardown Passed
     ${suite} =    Get Test Suite    Variables
     Should Be Equal    ${suite.teardown.status}    PASS

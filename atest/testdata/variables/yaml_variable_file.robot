@@ -1,5 +1,6 @@
 *** Settings ***
 Variables        valid.yaml
+Variables        valid.yml
 Variables        pythonpath.yaml
 Variables        ./invalid.YAML
 Variables        ..${/}variables${/}non_dict.yaml
@@ -20,6 +21,13 @@ Valid YAML file
     ${LIST}       ${EXPECTED LIST}
     ${DICT}       ${EXPECTED DICT}
 
+Valid YML file
+    ${STRING IN YML}     Hello, YML!
+    ${INTEGER IN YML}    ${42}
+    ${FLOAT IN YML}      ${3.14}
+    ${LIST IN YML}       ${EXPECTED LIST}
+    ${DICT IN YML}       ${EXPECTED DICT}
+
 Non-ASCII strings
     ${NON}    äscii
     ${NÖN}    äscii
@@ -27,9 +35,16 @@ Non-ASCII strings
 Dictionary is dot-accessible
     ${DICT.a}                1
     ${DICT.b}                ${2}
-    ${NESTED DICT.dict}      ${DICT}
+
+Nested dictionary is dot-accessible
+    ${NESTED DICT.dict}      ${EXPECTED DICT}
     ${NESTED DICT.dict.a}    1
     ${NESTED DICT.dict.b}    ${2}
+
+Dictionary inside list is dot-accessible
+    ${LIST WITH DICT[1].key}               value
+    ${LIST WITH DICT[2].dict}              ${EXPECTED DICT}
+    ${LIST WITH DICT[2].nested[0].leaf}    value
 
 YAML file in PYTHONPATH
     ${YAML FILE IN PYTHONPATH}    ${TRUE}
@@ -40,3 +55,4 @@ Import Variables keyword
 
 YAML file from CLI
     ${YAML FILE FROM CLI}    woot!
+    ${YML FILE FROM CLI}     kewl!

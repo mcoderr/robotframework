@@ -18,18 +18,19 @@
 # http://www.burgaud.com/bring-colors-to-the-windows-console-with-python/
 
 from contextlib import contextmanager
+import errno
 import os
 import sys
 try:
     from ctypes import windll, Structure, c_short, c_ushort, byref
-except ImportError:  # Not on Windows or using Jython
+except ImportError:  # Not on Windows
     windll = None
 
 from robot.errors import DataError
 from robot.utils import console_encode, isatty, WINDOWS
 
 
-class HighlightingStream(object):
+class HighlightingStream:
 
     def __init__(self, stream, colors='AUTO'):
         self.stream = stream
@@ -56,14 +57,25 @@ class HighlightingStream(object):
         # Workaround for Windows 10 console bug:
         # https://github.com/robotframework/robotframework/issues/2709
         try:
-            self.stream.write(text)
+            with self._suppress_broken_pipe_error:
+                self.stream.write(text)
         except IOError as err:
             if not (WINDOWS and err.errno == 0 and retry > 0):
                 raise
             self._write(text, retry-1)
 
+    @property
+    @contextmanager
+    def _suppress_broken_pipe_error(self):
+        try:
+            yield
+        except IOError as err:
+            if err.errno not in (errno.EPIPE, errno.EINVAL, errno.EBADF):
+                raise
+
     def flush(self):
-        self.stream.flush()
+        with self._suppress_broken_pipe_error:
+            self.stream.flush()
 
     def highlight(self, text, status=None, flush=True):
         if self._must_flush_before_and_after_highlighting():
@@ -89,7 +101,8 @@ class HighlightingStream(object):
         start = {'PASS': highlighter.green,
                  'FAIL': highlighter.red,
                  'ERROR': highlighter.red,
-                 'WARN': highlighter.yellow}[status]
+                 'WARN': highlighter.yellow,
+                 'SKIP': highlighter.yellow}[status]
         start()
         try:
             yield
@@ -103,7 +116,7 @@ def Highlighter(stream):
     return DosHighlighter(stream) if windll else NoHighlighting(stream)
 
 
-class AnsiHighlighter(object):
+class AnsiHighlighter:
     _ANSI_GREEN = '\033[32m'
     _ANSI_RED = '\033[31m'
     _ANSI_YELLOW = '\033[33m'
@@ -134,7 +147,7 @@ class NoHighlighting(AnsiHighlighter):
         pass
 
 
-class DosHighlighter(object):
+class DosHighlighter:
     _FOREGROUND_GREEN = 0x2
     _FOREGROUND_RED = 0x4
     _FOREGROUND_YELLOW = 0x6

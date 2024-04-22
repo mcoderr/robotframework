@@ -1,13 +1,14 @@
-from os.path import abspath, dirname, join, normpath
 import locale
 import os
 import subprocess
+from datetime import datetime, timedelta
+from os.path import abspath, dirname, join, normpath
 
 import robot
 
 
 __all__ = ['ROBOTPATH', 'ROBOT_VERSION', 'DATADIR', 'SYSTEM_ENCODING',
-           'CONSOLE_ENCODING']
+           'CONSOLE_ENCODING', 'datetime', 'timedelta']
 
 
 ROBOTPATH = dirname(abspath(robot.__file__))
@@ -21,4 +22,4 @@ if os.name == 'nt':
                                      errors='ignore')
     CONSOLE_ENCODING = 'cp' + output.split()[-1]
 else:
-    CONSOLE_ENCODING = locale.getdefaultlocale()[-1]
+    CONSOLE_ENCODING = locale.getlocale()[-1]

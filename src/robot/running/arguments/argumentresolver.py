@@ -13,117 +13,141 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from robot.errors import DataError
-from robot.utils import is_string, is_dict_like, split_from_equals
-from robot.variables import VariableSplitter
+from robot.utils import is_dict_like, is_list_like, split_from_equals
+from robot.variables import is_dict_variable
 
 from .argumentvalidator import ArgumentValidator
 
+if TYPE_CHECKING:
+    from .argumentspec import ArgumentSpec
 
-class ArgumentResolver(object):
 
-    def __init__(self, argspec, resolve_named=True,
-                 resolve_variables_until=None, dict_to_kwargs=False):
-        self._named_resolver = NamedArgumentResolver(argspec) \
-            if resolve_named else NullNamedArgumentResolver()
-        self._variable_replacer = VariableReplacer(resolve_variables_until)
-        self._dict_to_kwargs = DictToKwargs(argspec, dict_to_kwargs)
-        self._argument_validator = ArgumentValidator(argspec)
+class ArgumentResolver:
+
+    def __init__(self, spec: 'ArgumentSpec',
+                 resolve_named: bool = True,
+                 resolve_args_until: 'int|None' = None,
+                 dict_to_kwargs: bool = False):
+        self.named_resolver = NamedArgumentResolver(spec) \
+              if resolve_named else NullNamedArgumentResolver()
+        self.variable_replacer = VariableReplacer(spec, resolve_args_until)
+        self.dict_to_kwargs = DictToKwargs(spec, dict_to_kwargs)
+        self.argument_validator = ArgumentValidator(spec)
 
     def resolve(self, arguments, variables=None):
-        positional, named = self._named_resolver.resolve(arguments, variables)
-        positional, named = self._variable_replacer.replace(positional, named,
-                                                            variables)
-        positional, named = self._dict_to_kwargs.handle(positional, named)
-        self._argument_validator.validate(positional, named,
-                                          dryrun=variables is None)
+        if len(arguments) == 2 and is_list_like(arguments[0]) and is_dict_like(arguments[1]):
+            positional = list(arguments[0])
+            named = list(arguments[1].items())
+        else:
+            positional, named = self.named_resolver.resolve(arguments, variables)
+            positional, named = self.variable_replacer.replace(positional, named, variables)
+            positional, named = self.dict_to_kwargs.handle(positional, named)
+        self.argument_validator.validate(positional, named, dryrun=variables is None)
         return positional, named
 
 
-class NamedArgumentResolver(object):
+class NamedArgumentResolver:
 
-    def __init__(self, argspec):
-        self._argspec = argspec
+    def __init__(self, spec: 'ArgumentSpec'):
+        self.spec = spec
 
     def resolve(self, arguments, variables=None):
-        positional = []
+        spec = self.spec
+        positional = list(arguments[:len(spec.embedded)])
         named = []
-        for arg in arguments:
-            if self._is_dict_var(arg):
+        for arg in arguments[len(spec.embedded):]:
+            if is_dict_variable(arg):
                 named.append(arg)
-            elif self._is_named(arg, variables):
-                named.append(split_from_equals(arg))
-            elif named:
-                self._raise_positional_after_named()
             else:
-                positional.append(arg)
+                name, value = self._split_named(arg, named, variables, spec)
+                if name is not None:
+                    named.append((name, value))
+                elif named:
+                    self._raise_positional_after_named()
+                else:
+                    positional.append(value)
         return positional, named
 
-    def _is_dict_var(self, arg):
-        return (is_string(arg) and arg[:2] == '&{' and arg[-1] == '}' and
-                VariableSplitter(arg).is_dict_variable())
-
-    def _is_named(self, arg, variables=None):
-        if not (is_string(arg) and '=' in arg):
-            return False
+    def _split_named(self, arg, previous_named, variables, spec):
+        if isinstance(arg, tuple):
+            if len(arg) == 2 and isinstance(arg[0], str):
+                return arg
+            elif len(arg) == 1:
+                return None, arg[0]
+            else:
+                return None, arg
         name, value = split_from_equals(arg)
-        if value is None:
-            return False
-        if self._argspec.kwargs or self._argspec.kwonlyargs:
+        if value is None or not self._is_named(name, previous_named, variables, spec):
+            return None, arg
+        return name, value
+
+    def _is_named(self, name, previous_named, variables, spec):
+        if previous_named or spec.var_named:
             return True
-        if not self._argspec.supports_named:
-            return False
         if variables:
-            name = variables.replace_scalar(name)
-        return name in self._argspec.positional
+            try:
+                name = variables.replace_scalar(name)
+            except DataError:
+                return False
+        return name in spec.named
 
     def _raise_positional_after_named(self):
-        raise DataError("%s '%s' got positional argument after named arguments."
-                        % (self._argspec.type, self._argspec.name))
+        raise DataError(f"{self.spec.type.capitalize()} '{self.spec.name}' "
+                        f"got positional argument after named arguments.")
 
 
-class NullNamedArgumentResolver(object):
+class NullNamedArgumentResolver:
 
     def resolve(self, arguments, variables=None):
-        return arguments, {}
+        return arguments, []
 
 
-class DictToKwargs(object):
+class DictToKwargs:
 
-    def __init__(self, argspec, enabled=False):
-        self._maxargs = argspec.maxargs
-        self._enabled = enabled and bool(argspec.kwargs)
+    def __init__(self, spec: 'ArgumentSpec', enabled: bool = False):
+        self.maxargs = spec.maxargs
+        self.enabled = enabled and bool(spec.var_named)
 
     def handle(self, positional, named):
-        if self._enabled and self._extra_arg_has_kwargs(positional, named):
+        if self.enabled and self._extra_arg_has_kwargs(positional, named):
             named = positional.pop().items()
         return positional, named
 
     def _extra_arg_has_kwargs(self, positional, named):
-        if named or len(positional) != self._maxargs + 1:
+        if named or len(positional) != self.maxargs + 1:
             return False
         return is_dict_like(positional[-1])
 
 
-class VariableReplacer(object):
+class VariableReplacer:
 
-    def __init__(self, resolve_until=None):
-        self._resolve_until = resolve_until
+    def __init__(self, spec: 'ArgumentSpec', resolve_until: 'int|None' = None):
+        self.spec = spec
+        self.resolve_until = resolve_until
 
     def replace(self, positional, named, variables=None):
         # `variables` is None in dry-run mode and when using Libdoc.
         if variables:
-            positional = variables.replace_list(positional, self._resolve_until)
+            if self.spec.embedded:
+                embedded = len(self.spec.embedded)
+                positional = [
+                    variables.replace_scalar(emb) for emb in positional[:embedded]
+                ] + variables.replace_list(positional[embedded:])
+            else:
+                positional = variables.replace_list(positional, self.resolve_until)
             named = list(self._replace_named(named, variables.replace_scalar))
         else:
-            positional = list(positional)
-            named = [item for item in named if isinstance(item, tuple)]
+            # If `var` isn't a tuple, it's a &{dict} variables.
+            named = [var if isinstance(var, tuple) else (var, var) for var in named]
         return positional, named
 
     def _replace_named(self, named, replace_scalar):
         for item in named:
             for name, value in self._get_replaced_named(item, replace_scalar):
-                if not is_string(name):
+                if not isinstance(name, str):
                     raise DataError('Argument names must be strings.')
                 yield name, value
 
